@@ -11,50 +11,81 @@ import 'usb_service.dart';
 import 'package:image/image.dart' as img;
 import 'package:intl/intl.dart';
 
-final sampleData = ReceiptData(
+final receipt = ReceiptData(
   isProvisional: false,
   isReprint: false,
-  enableWifi: false,
-  wifiInfo: null,
-  taxCode: null,
-  phone: '0937155085',
+  enableWifi: true,
+  wifiInfo: {
+    "name": "Zami_Free_Wifi",
+    "password": "12345678",
+  },
+  taxCode: "0123456789",
+  phone: "0937155085",
   order: OrderData(
-    code: 'DH-AOYX-4423',
+    code: "DH-AOYX-4423",
     branch: BranchData(
-      name: 'Zami Solution FNB',
-      address: null,
+      name: "Zami Solution FNB",
+      address: "123 Lê Lợi, Quận 1, TP.HCM",
     ),
-    table: null,
-    waitingCard: null,
-    createdAt: DateTime.parse('2025-09-20 08:55:00'),
-    creator: UserData(fullName: 'Zami FnB'),
-    client: null,
-    orderType: 'DINE_IN',
-    shipping: null,
+    table: TableData(
+      name: "Bàn số 1",
+    ),
+    waitingCard: "WC-01",
+    createdAt: DateTime.parse("2025-09-20 08:55:00"),
+    creator: UserData(fullName: "Zami FnB"),
+    client: ClientData(
+      name: "Nguyễn Văn A",
+      phone: "0912345678",
+    ),
+    orderType: "DINE_IN",
+    shipping: ShippingData(
+      address: "456 Nguyễn Huệ, Quận 1, TP.HCM",
+    ),
     products: [
       ProductData(
-        name:
-            'Ten san pham dai th iet dai dai dai dai dai dai dai dai da i dai dai dai dai',
+        name: "Cà phê sữa đá size L",
         quantity: 1,
         price: 20000,
         attributes: [
-          AttributeData(name: 'Thuoc tinh 1', price: 5000),
-          AttributeData(name: 'Thuoc tinh 2', price: 3000),
+          AttributeData(name: "Thêm sữa", price: 5000),
+          AttributeData(name: "Ít đá", price: 0),
+          AttributeData(name: "Không đường", price: 0),
         ],
-        note: 'Ghi chu san pham nay rat dai va co nhieu thong tin chi tiet',
+        note: "Uống tại chỗ",
+      ),
+      ProductData(
+        name: "Trà đào cam sả",
+        quantity: 2,
+        price: 45000,
+        attributes: [
+          AttributeData(name: "Thêm topping đào", price: 8000),
+          AttributeData(name: "Ít ngọt", price: 0),
+        ],
+        note: "Để riêng đá",
+      ),
+      ProductData(
+        name: "Bánh mì thịt nướng",
+        quantity: 1,
+        price: 30000,
+        attributes: [
+          AttributeData(name: "Thêm pate", price: 5000),
+          AttributeData(name: "Không ớt", price: 0),
+        ],
+        note: "Mang về",
       ),
     ],
-    totalMoney: 245000,
-    totalDiscount: 0,
-    totalShipping: null,
-    tax: null,
-    totalMoneyPayment: 245000,
-    paymentMethod: 'CASH',
-    paymentStatus: 'PAID',
-    note: null,
-    qrBank: 'DH-AOYX-4423',
+    totalMoney: 170000,
+    totalDiscount: 10000,
+    totalShipping: 15000,
+    tax: 5000,
+    totalMoneyPayment: 180000,
+    paymentMethod: "CASH",
+    paymentStatus: "PAID",
+    note: "Hi tớ là Minh Quyền",
+    qrBank: "DH-AOYX-4423",
   ),
 );
+
 final GlobalKey _keyPrint = GlobalKey();
 void main() => runApp(MyApp());
 
@@ -80,7 +111,7 @@ class MyApp extends StatelessWidget {
           ),
         ),
       ),
-      home: const PrinterDemoPage(),
+      home: ReceiptExample(),
     );
   }
 }
@@ -320,7 +351,7 @@ class _PrinterDemoPageState extends State<PrinterDemoPage> {
                           Expanded(
                             child: ElevatedButton.icon(
                               onPressed: () {
-                                _service.printInvoice(sampleData, context);
+                                _service.printInvoice(receipt, context);
                               },
                               icon: const Icon(Icons.print_outlined),
                               label: const Text('In thử LAN'),

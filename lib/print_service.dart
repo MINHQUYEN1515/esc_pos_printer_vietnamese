@@ -1162,7 +1162,7 @@ class PrintService {
     }
   }
 
-  /// Hàm capture widget hoàn toàn không giới hạn chiều cao
+  /// Hàm capture widget hoàn toàn không giới hạn chiều cao - KHÔNG hiển thị lên màn hình
   Future<img.Image?> captureFullContentWidget(
       Widget widget, BuildContext context,
       {double pixelRatio = 3.0, int paperMaxWidth = 576}) async {
@@ -1189,14 +1189,17 @@ class PrintService {
         ),
       );
 
+      // Sử dụng Offstage để render widget mà không hiển thị lên màn hình
       late OverlayEntry overlayEntry;
       overlayEntry = OverlayEntry(
         builder: (context) => Material(
           color: Colors.transparent,
-          child: Container(
-            width: double.infinity,
-            height: double.infinity,
-            child: Center(
+          child: Transform.translate(
+            offset:
+                Offset(-10000, -10000), // Di chuyển ra ngoài màn hình cả X và Y
+            child: Container(
+              width: paperMaxWidth.toDouble(),
+              height: double.infinity,
               child: SingleChildScrollView(
                 child: wrappedWidget,
               ),
@@ -1308,6 +1311,109 @@ class PrintService {
     }
   }
 
+  /// Hàm capture widget hoàn toàn ẩn - không hiển thị gì lên màn hình
+  Future<img.Image?> captureHiddenWidget(Widget widget, BuildContext context,
+      {double pixelRatio = 3.0, int paperMaxWidth = 576}) async {
+    try {
+      final GlobalKey repaintBoundaryKey = GlobalKey();
+
+      // Tạo widget wrapper với kích thước cố định
+      final wrappedWidget = RepaintBoundary(
+        key: repaintBoundaryKey,
+        child: Material(
+          color: Colors.white,
+          child: ConstrainedBox(
+            constraints: BoxConstraints(
+              maxWidth: paperMaxWidth.toDouble(),
+              minWidth: paperMaxWidth.toDouble(),
+              maxHeight: double.infinity,
+              minHeight: 0,
+            ),
+            child: IntrinsicHeight(
+              child: widget,
+            ),
+          ),
+        ),
+      );
+
+      // Sử dụng một container ẩn hoàn toàn
+      late OverlayEntry overlayEntry;
+      overlayEntry = OverlayEntry(
+        builder: (context) => Material(
+          color: Colors.transparent,
+          child: Container(
+            width: 0,
+            height: 0,
+            child: OverflowBox(
+              maxWidth: paperMaxWidth.toDouble(),
+              maxHeight: double.infinity,
+              child: wrappedWidget,
+            ),
+          ),
+        ),
+      );
+
+      Overlay.of(context).insert(overlayEntry);
+
+      try {
+        // Chờ widget render
+        await Future.delayed(const Duration(milliseconds: 300));
+
+        final RenderRepaintBoundary? boundary =
+            repaintBoundaryKey.currentContext?.findRenderObject()
+                as RenderRepaintBoundary?;
+
+        if (boundary == null) {
+          print('Không thể tìm thấy RenderRepaintBoundary');
+          return null;
+        }
+
+        // Capture với pixel ratio cao
+        final ui.Image image = await boundary.toImage(pixelRatio: pixelRatio);
+        final ByteData? byteData =
+            await image.toByteData(format: ui.ImageByteFormat.png);
+
+        if (byteData == null) {
+          print('Không thể convert image thành byte data');
+          return null;
+        }
+
+        final capturedImage = img.decodeImage(byteData.buffer.asUint8List());
+
+        if (capturedImage != null) {
+          print(
+              'Captured HIDDEN widget image size: ${capturedImage.width}x${capturedImage.height}');
+
+          // Xử lý ảnh
+          final enhanced = cropVerticalWhitespace(capturedImage);
+          final grayscale = img.grayscale(enhanced);
+          final processed = threshold(grayscale, level: 140);
+
+          print(
+              'Processed HIDDEN widget image size: ${processed.width}x${processed.height}');
+
+          // Đảm bảo width đúng kích thước giấy
+          if (processed.width != paperMaxWidth) {
+            return img.copyResize(
+              processed,
+              width: paperMaxWidth,
+              interpolation: img.Interpolation.cubic,
+            );
+          }
+
+          return processed;
+        }
+
+        return null;
+      } finally {
+        overlayEntry.remove();
+      }
+    } catch (e) {
+      print('Lỗi capture hidden widget: $e');
+      return null;
+    }
+  }
+
   /// Hàm in Invoice với đảm bảo không mất nội dung
   Future<void> printInvoice(
       ReceiptData receiptData, BuildContext context) async {
@@ -1326,6 +1432,43 @@ class PrintService {
       print('In Invoice thành công!');
     } catch (e) {
       print("Lỗi in Invoice: $e");
+    }
+  }
+
+  /// Hàm in Invoice ẩn - không hiển thị widget lên màn hình
+  Future<void> printInvoiceHidden(
+      ReceiptData receiptData, BuildContext context) async {
+    try {
+      print('Bắt đầu in Invoice ẩn (không hiển thị lên màn hình)...');
+
+      // Tạo Invoice widget với forPrint: true để tối ưu cho in ấn
+      final invoiceWidget = Invoice(
+        receiptData: receiptData,
+        forPrint: true,
+      );
+
+      // Capture widget ẩn
+      final image = await captureHiddenWidget(
+        invoiceWidget,
+        context,
+        pixelRatio: 3.0,
+        paperMaxWidth: 576,
+      );
+
+      if (image == null) {
+        print('Không thể capture widget ẩn');
+        return;
+      }
+
+      print(
+          'Capture widget ẩn thành công với kích thước: ${image.width}x${image.height}');
+
+      // In trực tiếp
+      await printImageRaster(decodedImage: image);
+
+      print('In Invoice ẩn thành công!');
+    } catch (e) {
+      print("Lỗi in Invoice ẩn: $e");
     }
   }
 }

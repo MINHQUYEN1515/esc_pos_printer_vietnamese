@@ -2,13 +2,18 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 
-class Invoice extends StatelessWidget {
+class Invoice extends StatefulWidget {
   final ReceiptData receiptData;
   final bool forPrint;
 
   const Invoice({Key? key, required this.receiptData, this.forPrint = false})
       : super(key: key);
 
+  @override
+  State<Invoice> createState() => _InvoiceState();
+}
+
+class _InvoiceState extends State<Invoice> {
   @override
   Widget build(BuildContext context) {
     final content = Column(
@@ -20,17 +25,15 @@ class Invoice extends StatelessWidget {
         if (_shouldShowWifi()) _buildWifiInfo(),
         Align(alignment: Alignment.center, child: _buildOrderInfo()),
         _buildDateTimeInfo(),
-        if (receiptData.order.creator != null) _buildStaffInfo(),
-        if (receiptData.order.client != null) _buildCustomerInfo(),
+        if (widget.receiptData.order.creator != null) _buildStaffInfo(),
+        if (widget.receiptData.order.client != null) _buildCustomerInfo(),
         _buildDivider(),
         _buildProductHeader(),
         _buildProductList(),
         _buildDivider(),
         _buildTotals(),
         _buildPaymentInfo(),
-        if (receiptData.order.note != null)
-          Align(alignment: Alignment.center, child: _buildOrderNote()),
-        if (receiptData.order.qrBank != null)
+        if (widget.receiptData.order.qrBank != null)
           Align(alignment: Alignment.center, child: _buildQRCode()),
         Align(alignment: Alignment.center, child: _buildFooter()),
       ],
@@ -42,7 +45,7 @@ class Invoice extends StatelessWidget {
         color: Colors.white,
         border: Border.all(color: Colors.grey.shade300),
       ),
-      child: forPrint
+      child: widget.forPrint
           ? Container(
               constraints: const BoxConstraints(minHeight: 0),
               child: content,
@@ -60,8 +63,15 @@ class Invoice extends StatelessWidget {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
+        Image.network(
+            alignment: Alignment.center,
+            width: 70,
+            height: 70,
+            color: Colors.black,
+            "https://cdn-new.topcv.vn/unsafe/140x/https://static.topcv.vn/company_logos/0E6pkRSt8cpHLo4OXHPoWNpxIiPWAQN1_1751627313____057cf59a177e4cacee6bb8ad9319e08b.png"),
+        // Header Section
         Text(
-          receiptData.isProvisional
+          widget.receiptData.isProvisional
               ? ' HÓA ĐƠN TẠM TÍNH'
               : 'HÓA ĐƠN THANH TOÁN',
           style: const TextStyle(
@@ -70,7 +80,7 @@ class Invoice extends StatelessWidget {
           ),
           textAlign: TextAlign.center,
         ),
-        if (receiptData.isReprint)
+        if (widget.receiptData.isReprint)
           const Text(
             '(In lại)',
             style: TextStyle(fontSize: 20, fontWeight: FontWeight.w500),
@@ -92,9 +102,9 @@ class Invoice extends StatelessWidget {
           ),
           textAlign: TextAlign.center,
         ),
-        if (receiptData.order.branch?.address != null)
+        if (widget.receiptData.order.branch?.address != null)
           Text(
-            receiptData.order.branch!.address!,
+            widget.receiptData.order.branch!.address!,
             style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w500),
             textAlign: TextAlign.center,
           ),
@@ -116,49 +126,51 @@ class Invoice extends StatelessWidget {
           textAlign: TextAlign.center,
         ),
         Text(
-          'Tên: ${_removeAccents(receiptData.wifiInfo!['name']!)}',
+          'Tên: ${widget.receiptData.wifiInfo!['name']!}',
           style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w500),
           textAlign: TextAlign.center,
         ),
         Text(
-          'Mật khẩu: ${_removeAccents(receiptData.wifiInfo!['password']!)}',
+          'Mật khẩu: ${widget.receiptData.wifiInfo!['password']!}',
           style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w500),
           textAlign: TextAlign.center,
         ),
+        _buildDivider(),
       ],
     );
   }
 
   Widget _buildOrderInfo() {
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.center,
       mainAxisSize: MainAxisSize.min,
       children: [
         Text(
-          'Mã đơn: ${receiptData.order.code}',
+          'Mã đơn: ${widget.receiptData.order.code}',
           style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w500),
         ),
-        if (receiptData.order.table != null)
+        if (widget.receiptData.order.table != null)
           Text(
-            'Bàn: ${receiptData.order.table!.name}',
+            'Bàn: ${widget.receiptData.order.table!.name}',
             style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w500),
           ),
-        if (receiptData.order.waitingCard != null)
+        if (widget.receiptData.order.waitingCard != null)
           Text(
-            'Thẻ: ${receiptData.order.waitingCard}',
+            'Thẻ: ${widget.receiptData.order.waitingCard}',
             style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w500),
           ),
+        _buildDivider(),
       ],
     );
   }
 
   Widget _buildDateTimeInfo() {
     final orderTimeGMT7 =
-        receiptData.order.createdAt.add(const Duration(hours: 7));
+        widget.receiptData.order.createdAt.add(const Duration(hours: 7));
     final currentTimeGMT7 = DateTime.now();
 
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.center,
       mainAxisSize: MainAxisSize.min,
       children: [
         Text(
@@ -179,7 +191,7 @@ class Invoice extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         Text(
-          'Nhân viên: ${_removeAccents(receiptData.order.creator!.fullName)}',
+          'Nhân viên: ${widget.receiptData.order.creator!.fullName}',
           style: const TextStyle(
             fontWeight: FontWeight.bold,
             fontSize: 15,
@@ -195,17 +207,17 @@ class Invoice extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         Text(
-          'Khách hàng: ${_removeAccents(receiptData.order.client!.name!)}',
+          'Khách hàng: ${widget.receiptData.order.client!.name!}',
           style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w500),
         ),
         Text(
-          'SDT: ${receiptData.order.client!.phone}',
+          'SDT: ${widget.receiptData.order.client!.phone}',
           style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w500),
         ),
-        if (receiptData.order.orderType == 'SHIPPING' &&
-            receiptData.order.shipping?.address != null)
+        if (widget.receiptData.order.orderType == 'SHIPPING' &&
+            widget.receiptData.order.shipping?.address != null)
           Text(
-            'Địa chỉ: ${_removeAccents(receiptData.order.shipping!.address!)}',
+            'Địa chỉ: ${widget.receiptData.order.shipping!.address!}',
             style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w500),
           ),
       ],
@@ -214,45 +226,45 @@ class Invoice extends StatelessWidget {
 
   Widget _buildProductHeader() {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10),
+      // padding: const EdgeInsets.symmetric(horizontal: 16),
       child: const Row(
         children: [
-          SizedBox(
-            width: 40, // Increased for better readability
+          Expanded(
             child: Text(
               'SL',
-              style: const TextStyle(
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 15,
+              ),
+              textAlign: TextAlign.start,
+            ),
+          ),
+          Expanded(
+            flex: 4,
+            child: Text(
+              'Sản phẩm',
+              style: TextStyle(
                 fontWeight: FontWeight.bold,
                 fontSize: 15,
               ),
             ),
           ),
           Expanded(
-            flex: 6, // Increased flex for product name
-            child: Text(
-              'Sản phẩm',
-              style: const TextStyle(
-                fontWeight: FontWeight.bold,
-                fontSize: 15,
-              ),
-            ),
-          ),
-          SizedBox(
-            width: 80, // Increased for price display
+            flex: 2,
             child: Text(
               'Đơn giá',
-              style: const TextStyle(
+              style: TextStyle(
                 fontWeight: FontWeight.bold,
                 fontSize: 15,
               ),
               textAlign: TextAlign.right,
             ),
           ),
-          SizedBox(
-            width: 80, // Increased for total display
+          Expanded(
+            flex: 2,
             child: Text(
               'Thành tiền',
-              style: const TextStyle(
+              style: TextStyle(
                 fontWeight: FontWeight.bold,
                 fontSize: 15,
               ),
@@ -266,10 +278,10 @@ class Invoice extends StatelessWidget {
 
   Widget _buildProductList() {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 10),
+      padding: EdgeInsets.only(left: 5),
       child: Column(
         mainAxisSize: MainAxisSize.min,
-        children: receiptData.order.products
+        children: widget.receiptData.order.products
             .map((product) => _buildProductRow(product))
             .toList(),
       ),
@@ -277,38 +289,37 @@ class Invoice extends StatelessWidget {
   }
 
   Widget _buildProductRow(ProductData product) {
-    const maxLineLength = 35; // Increased for wider layout
-    final productName = _removeAccents(product.name);
+    final productName = product.name;
 
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
         // Main product row
         Container(
-          padding: const EdgeInsets.symmetric(vertical: 2),
+          // padding: const EdgeInsets.symmetric(vertical: 2),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              SizedBox(
-                width: 40, // Match header width
+              Expanded(
                 child: Text(
                   '${product.quantity}',
                   style: const TextStyle(
                       fontSize: 15, fontWeight: FontWeight.w500),
+                  textAlign: TextAlign.start,
                 ),
               ),
               Expanded(
-                flex: 6, // Match header flex
+                flex: 4,
                 child: Text(
-                  productName.length <= maxLineLength
-                      ? productName
-                      : productName.substring(0, maxLineLength),
+                  productName,
                   style: const TextStyle(
-                      fontSize: 15, fontWeight: FontWeight.w500),
+                    fontSize: 15,
+                    fontWeight: FontWeight.w500,
+                  ),
                 ),
               ),
-              SizedBox(
-                width: 80, // Match header width
+              Expanded(
+                flex: 2,
                 child: Text(
                   _formatNumber(_calculateProductPrice(product)),
                   style: const TextStyle(
@@ -316,8 +327,8 @@ class Invoice extends StatelessWidget {
                   textAlign: TextAlign.right,
                 ),
               ),
-              SizedBox(
-                width: 80, // Match header width
+              Expanded(
+                flex: 2,
                 child: Text(
                   _formatNumber(_calculateProductTotalPrice(product)),
                   style: const TextStyle(
@@ -328,57 +339,17 @@ class Invoice extends StatelessWidget {
             ],
           ),
         ),
-        // Additional lines for long product names
-        if (productName.length > maxLineLength)
-          ..._buildAdditionalProductLines(productName, maxLineLength),
-        // Product attributes
+
         ...product.attributes
             .map((attr) => _buildAttributeRow(attr, product.quantity)),
         // Product note
         if (product.note != null && product.note!.isNotEmpty)
           _buildProductNote(product.note!),
+        const SizedBox(
+          height: 10,
+        )
       ],
     );
-  }
-
-  List<Widget> _buildAdditionalProductLines(
-      String productName, int maxLineLength) {
-    List<Widget> lines = [];
-    String remainingText = productName.substring(maxLineLength);
-
-    while (remainingText.isNotEmpty) {
-      final nextLine = remainingText.length > maxLineLength
-          ? remainingText.substring(0, maxLineLength)
-          : remainingText;
-
-      lines.add(
-        Container(
-          padding: const EdgeInsets.symmetric(vertical: 1),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const SizedBox(width: 40), // Match header width
-              Expanded(
-                flex: 6, // Match header flex
-                child: Text(
-                  nextLine,
-                  style: const TextStyle(
-                      fontSize: 15, fontWeight: FontWeight.w500),
-                ),
-              ),
-              const SizedBox(width: 80), // Match header width
-              const SizedBox(width: 80), // Match header width
-            ],
-          ),
-        ),
-      );
-
-      remainingText = remainingText.length > maxLineLength
-          ? remainingText.substring(maxLineLength)
-          : '';
-    }
-
-    return lines;
   }
 
   Widget _buildAttributeRow(AttributeData attr, int quantity) {
@@ -387,23 +358,24 @@ class Invoice extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          Expanded(child: const SizedBox(width: 50)),
           Expanded(
-            flex: 6, // Match header flex
+            flex: 4,
             child: Text(
-              '+ ${_removeAccents(attr.name)}',
+              '+ ${attr.name}',
               style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w500),
             ),
           ),
-          SizedBox(
-            width: 80, // Match header width
+          Expanded(
+            flex: 2,
             child: Text(
               _formatNumber(attr.price),
               style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w500),
               textAlign: TextAlign.right,
             ),
           ),
-          SizedBox(
-            width: 80, // Match header width
+          Expanded(
+            flex: 2,
             child: Text(
               _formatNumber(attr.price * quantity),
               style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w500),
@@ -417,14 +389,16 @@ class Invoice extends StatelessWidget {
 
   Widget _buildProductNote(String note) {
     return Container(
-      padding: const EdgeInsets.symmetric(vertical: 1, horizontal: 10),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const SizedBox(width: 40), // Match product layout
           Expanded(
+            child: SizedBox(),
+          ),
+          Expanded(
+            flex: 8,
             child: Text(
-              'Ghi chú: ${_removeAccents(note)}',
+              '*Ghi chú: ${note}',
               style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w500),
             ),
           ),
@@ -435,14 +409,14 @@ class Invoice extends StatelessWidget {
 
   Widget _buildTotals() {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20),
+      padding: EdgeInsets.only(left: 5),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          _buildTotalRow('Thành tiền:', receiptData.order.totalMoney),
+          _buildTotalRow('Thành tiền:', widget.receiptData.order.totalMoney),
           _buildDivider(),
           _buildTotalRow(
-              'Tổng thanh toán:', receiptData.order.totalMoneyPayment,
+              'Tổng thanh toán:', widget.receiptData.order.totalMoneyPayment,
               bold: true, large: true),
         ],
       ),
@@ -477,23 +451,25 @@ class Invoice extends StatelessWidget {
 
   Widget _buildPaymentInfo() {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20),
+      padding: const EdgeInsets.only(left: 5),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
           _buildInfoRow('Phương thức thanh toán:',
-              _getPaymentMethodName(receiptData.order.paymentMethod)),
+              _getPaymentMethodName(widget.receiptData.order.paymentMethod)),
           _buildInfoRow('Trạng thái thanh toán:',
-              _getPaymentStatusName(receiptData.order.paymentStatus)),
-          if (receiptData.order.qrBank != null)
-            _buildInfoRow('Ghi chú:', 'Mã QR thanh toán'),
+              _getPaymentStatusName(widget.receiptData.order.paymentStatus)),
+          _buildInfoRow('Ghi chú:', widget.receiptData.order.note ?? ''),
         ],
       ),
     );
   }
 
   Widget _buildOrderNote() {
-    return _buildInfoRow('Ghi chú:', _removeAccents(receiptData.order.note!));
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: _buildInfoRow('Ghi chú:', widget.receiptData.order.note!),
+    );
   }
 
   Widget _buildInfoRow(String label, String value) {
@@ -502,18 +478,14 @@ class Invoice extends StatelessWidget {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Flexible(
-            child: Text(
-              label,
-              style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w500),
-            ),
+          Text(
+            label,
+            style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w500),
           ),
-          Flexible(
-            child: Text(
-              value,
-              style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w500),
-              textAlign: TextAlign.right,
-            ),
+          Text(
+            value,
+            style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w500),
+            textAlign: TextAlign.right,
           ),
         ],
       ),
@@ -525,13 +497,16 @@ class Invoice extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         const SizedBox(height: 8),
+        const Text(
+          "Mã QR thanh toán",
+          style: TextStyle(fontSize: 15, fontWeight: FontWeight.w500),
+        ),
         Container(
-            width: 80, // Increased size for better visibility
-            height: 80,
+            width: 120, // Increased size for better visibility
+            height: 120,
             child: QrImageView(
-              data: receiptData.order.qrBank ?? "123",
+              data: widget.receiptData.order.qrBank ?? "123",
             )),
-        const SizedBox(height: 8),
       ],
     );
   }
@@ -552,7 +527,7 @@ class Invoice extends StatelessWidget {
           textAlign: TextAlign.center,
         ),
         Text(
-          'Mã tra cứu: ${receiptData.order.code}',
+          'Mã tra cứu: ${widget.receiptData.order.code}',
           style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w500),
           textAlign: TextAlign.center,
         ),
@@ -561,9 +536,9 @@ class Invoice extends StatelessWidget {
           style: TextStyle(fontSize: 15, fontWeight: FontWeight.w500),
           textAlign: TextAlign.center,
         ),
-        if (receiptData.phone != null)
+        if (widget.receiptData.phone != null)
           Text(
-            'Hotline: ${receiptData.phone}',
+            'Hotline: ${widget.receiptData.phone}',
             style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w500),
             textAlign: TextAlign.center,
           ),
@@ -577,28 +552,29 @@ class Invoice extends StatelessWidget {
   }
 
   Widget _buildDivider() {
+    int count = (MediaQuery.of(context).size.width / 3).floor();
+
     return Container(
-      margin: const EdgeInsets.symmetric(vertical: 4),
-      child: Row(
-        children: List.generate(
-          40,
-          (index) => Expanded(
-            child: Container(
-              height: 1,
-              color: index % 2 == 0 ? Colors.black : Colors.transparent,
-            ),
+        child: Row(
+      children: List.generate(
+        count,
+        (index) => Expanded(
+          child: Container(
+            height: 1,
+            width: 3,
+            color: index % 2 == 0 ? Colors.black : Colors.transparent,
           ),
         ),
       ),
-    );
+    ));
   }
 
   // Helper methods
   bool _shouldShowWifi() {
-    return receiptData.enableWifi &&
-        receiptData.wifiInfo != null &&
-        receiptData.wifiInfo!['name'] != null &&
-        receiptData.wifiInfo!['password'] != null;
+    return widget.receiptData.enableWifi &&
+        widget.receiptData.wifiInfo != null &&
+        widget.receiptData.wifiInfo!['name'] != null &&
+        widget.receiptData.wifiInfo!['password'] != null;
   }
 
   String _formatNumber(double number) {
@@ -631,24 +607,6 @@ class Invoice extends StatelessWidget {
       'PARTIAL': 'Thanh toan mot phan',
     };
     return statuses[status] ?? status;
-  }
-
-  String _removeAccents(String str) {
-    return str
-        .replaceAll(RegExp(r'[àáạảãâầấậẩẫăằắặẳẵ]'), 'a')
-        .replaceAll(RegExp(r'[èéẹẻẽêềếệểễ]'), 'e')
-        .replaceAll(RegExp(r'[ìíịỉĩ]'), 'i')
-        .replaceAll(RegExp(r'[òóọỏõôồốộổỗơờớợởỡ]'), 'o')
-        .replaceAll(RegExp(r'[ùúụủũưừứựửữ]'), 'u')
-        .replaceAll(RegExp(r'[ỳýỵỷỹ]'), 'y')
-        .replaceAll(RegExp(r'[đ]'), 'd')
-        .replaceAll(RegExp(r'[ÀÁẠẢÃÂẦẤẬẨẪĂẰẮẶẲẴ]'), 'A')
-        .replaceAll(RegExp(r'[ÈÉẸẺẼÊỀẾỆỂỄ]'), 'E')
-        .replaceAll(RegExp(r'[ÌÍỊỈĨ]'), 'I')
-        .replaceAll(RegExp(r'[ÒÓỌỎÕÔỒỐỘỔỖƠỜỚỢỞỠ]'), 'O')
-        .replaceAll(RegExp(r'[ÙÚỤỦŨƯỪỨỰỬỮ]'), 'U')
-        .replaceAll(RegExp(r'[ỲÝỴỶỸ]'), 'Y')
-        .replaceAll(RegExp(r'[Đ]'), 'D');
   }
 }
 
@@ -779,76 +737,85 @@ class ReceiptExample extends StatelessWidget {
   const ReceiptExample({Key? key, this.forPrint = false}) : super(key: key);
   @override
   Widget build(BuildContext context) {
-    final sampleData = ReceiptData(
+    final receipt = ReceiptData(
       isProvisional: false,
       isReprint: false,
-      enableWifi: false,
-      wifiInfo: null,
-      taxCode: null,
-      phone: '0937155085',
+      enableWifi: true,
+      wifiInfo: {
+        "name": "Zami_Free_Wifi",
+        "password": "12345678",
+      },
+      taxCode: "0123456789",
+      phone: "0937155085",
       order: OrderData(
-        code: 'DH-AOYX-4423',
+        code: "DH-AOYX-4423",
         branch: BranchData(
-          name: 'Zami Solution FNB',
-          address: null,
+          name: "Zami Solution FNB",
+          address: "123 Lê Lợi, Quận 1, TP.HCM",
         ),
-        table: null,
-        waitingCard: null,
-        createdAt: DateTime.parse('2025-09-20 08:55:00'),
-        creator: UserData(fullName: 'Zami FnB'),
-        client: null,
-        orderType: 'DINE_IN',
-        shipping: null,
+        table: TableData(
+          name: "Bàn số 1",
+        ),
+        waitingCard: "WC-01",
+        createdAt: DateTime.parse("2025-09-20 08:55:00"),
+        creator: UserData(fullName: "Zami FnB"),
+        client: ClientData(
+          name: "Nguyễn Văn A",
+          phone: "0912345678",
+        ),
+        orderType: "DINE_IN",
+        shipping: ShippingData(
+          address: "456 Nguyễn Huệ, Quận 1, TP.HCM",
+        ),
         products: [
           ProductData(
-            name:
-                'Ten san pham dai th iet dai dai dai dai dai dai dai dai da i dai dai dai dai',
+            name: "Cà phê sữa đá size L",
             quantity: 1,
             price: 20000,
-            attributes: [],
-            note: null,
+            attributes: [
+              AttributeData(name: "Thêm sữa", price: 5000),
+              AttributeData(name: "Ít đá", price: 0),
+              AttributeData(name: "Không đường", price: 0),
+            ],
+            note: "Uống tại chỗ",
           ),
           ProductData(
-            name:
-                'Ten san pham dai th iet dai dai dai dai dai dai dai dai da i dai dai dai dai',
-            quantity: 1,
-            price: 20000,
-            attributes: [],
-            note: null,
+            name: "Trà đào cam sả",
+            quantity: 2,
+            price: 45000,
+            attributes: [
+              AttributeData(name: "Thêm topping đào", price: 8000),
+              AttributeData(name: "Ít ngọt", price: 0),
+            ],
+            note: "Để riêng đá",
           ),
           ProductData(
-            name:
-                'Ten san pham dai th iet dai dai dai dai dai dai dai dai da i dai dai dai dai',
+            name: "Bánh mì thịt nướng",
             quantity: 1,
-            price: 20000,
-            attributes: [],
-            note: null,
-          ),
-          ProductData(
-            name:
-                'Ten san pham dai th iet dai dai dai dai dai dai dai dai da i dai dai dai dai',
-            quantity: 1,
-            price: 20000,
-            attributes: [],
-            note: null,
+            price: 30000,
+            attributes: [
+              AttributeData(name: "Thêm pate", price: 5000),
+              AttributeData(name: "Không ớt", price: 0),
+            ],
+            note: "Mang về",
           ),
         ],
-        totalMoney: 20000,
-        totalDiscount: 0,
-        totalShipping: null,
-        tax: null,
-        totalMoneyPayment: 20000,
-        paymentMethod: 'CASH',
-        paymentStatus: 'PAID',
-        note: null,
-        qrBank: 'DH-AOYX-4423',
+        totalMoney: 170000,
+        totalDiscount: 10000,
+        totalShipping: 15000,
+        tax: 5000,
+        totalMoneyPayment: 180000,
+        paymentMethod: "CASH",
+        paymentStatus: "PAID",
+        note: "Hi tớ là Minh Quyền",
+        qrBank: "DH-AOYX-4423",
       ),
     );
 
     return Scaffold(
       body: SingleChildScrollView(
         child: Center(
-          child: Invoice(receiptData: sampleData, forPrint: forPrint),
+          child: Invoice(receiptData: receipt, forPrint: forPrint),
         ),
       ),
     );
