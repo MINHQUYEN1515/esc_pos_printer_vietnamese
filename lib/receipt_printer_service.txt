@@ -1,0 +1,1268 @@
+import 'dart:convert';
+import 'package:esc_pos_utils/esc_pos_utils.dart';
+import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:zpos/core/utils/format_utils.dart';
+import 'package:zpos/core/utils/string_utils.dart';
+import 'package:zpos/features/order/domain/entities/order.dart';
+import 'package:zpos/features/settings/data/services/printer_service.dart';
+import 'package:zpos/features/settings/domain/entities/printer_config.dart';
+
+class ReceiptPrinterService {
+  /// Prints an order receipt to all available receipt printers
+  static Future<void> printOrderReceipt(
+    BuildContext context, {
+    required Order order,
+    bool isProvisional = false,
+    bool isReprint = true,
+  }) async {
+    // Load all receipt printers
+    final printers = await _loadPrinters();
+
+    if (printers.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+              'Không tìm thấy máy in nào. Vui lòng thiết lập máy in trong cài đặt.'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
+
+    // Show loading dialog
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => const AlertDialog(
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            CircularProgressIndicator(),
+            SizedBox(height: 16),
+            Text('Đang in hóa đơn...'),
+          ],
+        ),
+      ),
+    );
+
+    try {
+      // Generate receipt data once
+      final List<int> bytes =
+          await _generateReceiptData(order, isReprint, isProvisional);
+
+      // Validate bytes to ensure they're all valid
+      List<int> validBytes = [];
+      for (int byte in bytes) {
+        if (byte >= 0 && byte <= 255) {
+          validBytes.add(byte);
+        } else {
+          print('Invalid byte detected: $byte');
+        }
+      }
+      print('Valid bytes: ${validBytes.length}');
+
+      // Print to all receipt printers
+      List<String> successPrinters = [];
+      List<String> failedPrinters = [];
+
+      for (var printer in printers) {
+        try {
+          if (printer.connectionMethod == 'LAN') {
+            final String ipAddress = printer.settings['ipAddress'] as String;
+            final int port = int.parse(printer.settings['port'] as String);
+
+            await PrinterService.sendToPrinter(ipAddress, port, validBytes);
+            print('Printed to $ipAddress:$port');
+            successPrinters.add(_getPrinterAddress(printer));
+          } else if (printer.connectionMethod == 'USB') {
+            // For USB printers
+            if (printer.settings['vendorId'] != null &&
+                printer.settings['productId'] != null) {
+              final vendorId =
+                  int.parse(printer.settings['vendorId'].toString());
+              final productId =
+                  int.parse(printer.settings['productId'].toString());
+              // Connect to printer
+              final connected =
+                  await PrinterService.connectUsbPrinter(vendorId, productId);
+
+              if (!connected) {
+                throw Exception('Cannot connect to USB printer');
+              }
+
+              // Send data to printer
+              final success = await PrinterService.sendToUsbPrinter(validBytes);
+
+              if (!success) {
+                throw Exception('Failed to send data to USB printer');
+              }
+
+              successPrinters.add(_getPrinterAddress(printer));
+            } else {
+              failedPrinters.add(
+                  '${_getPrinterAddress(printer)} (Missing USB device information)');
+            }
+          } else {
+            // Skip non-supported printers for now
+            failedPrinters.add(
+                '${_getPrinterAddress(printer)} (${printer.connectionMethod} không được hỗ trợ)');
+          }
+        } catch (e) {
+          print('Error printing to ${_getPrinterAddress(printer)}: $e');
+          failedPrinters.add(_getPrinterAddress(printer));
+        }
+      }
+
+      // Close loading dialog
+      if (context.mounted && Navigator.of(context).canPop()) {
+        Navigator.of(context).pop();
+      }
+
+      // Show success/failure message
+      // if (context.mounted) {
+      //   if (successPrinters.isNotEmpty) {
+      //     String message =
+      //         'Đã in thành công đến ${successPrinters.length} máy in';
+      //     if (failedPrinters.isNotEmpty) {
+      //       message += '. ${failedPrinters.length} máy in thất bại.';
+      //     }
+
+      //     ScaffoldMessenger.of(context).showSnackBar(
+      //       SnackBar(
+      //         content: Text(message),
+      //         backgroundColor: Colors.green,
+      //         duration: const Duration(seconds: 3),
+      //       ),
+      //     );
+      //   } else {
+      //     ScaffoldMessenger.of(context).showSnackBar(
+      //       const SnackBar(
+      //         content: Text('Không thể in đến bất kỳ máy in nào'),
+      //         backgroundColor: Colors.red,
+      //       ),
+      //     );
+      //   }
+      // }
+    } catch (e) {
+      print('Error in print process: $e');
+      // Close loading dialog
+      if (context.mounted && Navigator.of(context).canPop()) {
+        Navigator.of(context).pop();
+      }
+
+      // Show error message
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Lỗi khi in: ${e.toString()}'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  /// Loads all configured receipt printers from SharedPreferences
+  static Future<List<PrinterConfig>> _loadPrinters() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final String? printersJson = prefs.getString('CACHED_PRINTERS');
+
+      if (printersJson == null) {
+        return [];
+      }
+
+      final List<dynamic> decodedList = json.decode(printersJson);
+      return decodedList
+          .map((item) => PrinterConfig.fromJson(item))
+          .where((printer) => printer.printerType == 'RECEIPT')
+          .toList();
+    } catch (e) {
+      print('Error loading printers: $e');
+      return [];
+    }
+  }
+
+  /// Gets a human-readable address for a printer
+  static String _getPrinterAddress(PrinterConfig printer) {
+    if (printer.connectionMethod == 'LAN') {
+      return '${printer.settings['ipAddress']}:${printer.settings['port']}';
+    } else if (printer.connectionMethod == 'BLUETOOTH' ||
+        printer.connectionMethod == 'USB') {
+      return printer.settings['deviceName'] ?? 'Unknown device';
+    }
+    return 'Unknown';
+  }
+
+  /// Calculates the total price for a product including attributes
+  static double _calculateProductPrice(OrderProduct product) {
+    double price = product.price;
+    if (product.enablePriceSale) {
+      price = product.priceSale;
+    }
+
+    return price;
+  }
+
+  static double _calculateProductTotalPrice(OrderProduct product) {
+    double price = product.price;
+    if (product.enablePriceSale) {
+      price = product.priceSale;
+    }
+    double total = price * product.quantity;
+
+    // Add attribute prices if any
+    // for (var attr in product.attributes) {
+    //   total += attr.price * product.quantity;
+    // }
+
+    return total;
+  }
+
+  /// Generates ESC/POS commands for printing a receipt
+  static Future<List<int>> _generateReceiptData(
+      Order order, bool isReprint, bool isProvisional) async {
+    final profile = await CapabilityProfile.load();
+    final generator = Generator(PaperSize.mm80, profile);
+
+    // Get current branch WiFi info from local storage
+    final prefs = await SharedPreferences.getInstance();
+    final branchJsonString = prefs.getString('CACHED_BRANCH');
+    Map<String, dynamic>? wifiInfo;
+    String? phone;
+    String? address;
+    String? taxCode;
+    bool enableWifi = false;
+    if (branchJsonString != null) {
+      final branchData = json.decode(branchJsonString);
+
+      if (branchData['wifi'] != null) {
+        wifiInfo = Map<String, dynamic>.from(branchData['wifi']);
+      }
+
+      if (branchData['enableWifi'] != null) {
+        enableWifi = branchData['enableWifi'];
+      }
+      phone = branchData['phone'];
+      address = branchData['address'];
+      taxCode = branchData['taxCode'];
+    }
+
+    List<int> bytes = [];
+
+    // Reset printer
+    bytes += generator.reset();
+
+    // Store name and header - INCREASED SIZE
+    if (isProvisional == true) {
+      bytes += generator.text('HOA DON TAM TINH',
+          styles: const PosStyles(
+              align: PosAlign.center,
+              bold: true,
+              height: PosTextSize.size2,
+              width: PosTextSize.size2));
+    } else {
+      bytes += generator.text('HOA DON THANH TOAN',
+          styles: const PosStyles(
+              align: PosAlign.center,
+              bold: true,
+              height: PosTextSize.size2,
+              width: PosTextSize.size2));
+    }
+
+    if (isReprint) {
+      bytes += generator.text('(In lai)',
+          styles: const PosStyles(
+              align: PosAlign.center,
+              height: PosTextSize.size1,
+              width: PosTextSize.size1));
+    }
+
+    // Store info
+    if (order.branch != null) {
+      bytes += generator.text(
+          StringUtils.removeAccents('${order.branch!.name}'),
+          styles: const PosStyles(
+              align: PosAlign.center,
+              height: PosTextSize.size2,
+              width: PosTextSize.size1,
+              bold: true));
+      if (order.branch!.address != null) {
+        bytes += generator.text(
+            StringUtils.removeAccents('${order.branch!.address}'),
+            styles: const PosStyles(
+                align: PosAlign.center,
+                height: PosTextSize.size1,
+                width: PosTextSize.size1));
+      }
+
+      // Add WiFi information if available from local storage
+      if (enableWifi &&
+          wifiInfo != null &&
+          wifiInfo['name'] != null &&
+          wifiInfo['password'] != null) {
+        bytes += generator.hr();
+        bytes += generator.text('WIFI MIEN PHI',
+            styles: const PosStyles(
+                align: PosAlign.center,
+                bold: true,
+                height: PosTextSize.size1,
+                width: PosTextSize.size1));
+        bytes += generator.text(
+            'Ten: ${StringUtils.removeAccents(wifiInfo['name'])}',
+            styles: const PosStyles(
+                align: PosAlign.center,
+                height: PosTextSize.size1,
+                width: PosTextSize.size1));
+        bytes += generator.text(
+            'Mat khau: ${StringUtils.removeAccents(wifiInfo['password'])}',
+            styles: const PosStyles(
+                align: PosAlign.center,
+                height: PosTextSize.size1,
+                width: PosTextSize.size1));
+        bytes += generator.hr();
+      }
+    }
+
+    // Order info
+    bytes += generator.text('Ma don: ${order.code}',
+        styles: const PosStyles(
+            align: PosAlign.center,
+            bold: true,
+            height: PosTextSize.size1,
+            width: PosTextSize.size1));
+
+    if (order.table != null) {
+      bytes += generator.text('Ban: ${order.table!.name}',
+          styles: const PosStyles(
+              align: PosAlign.center,
+              bold: true,
+              height: PosTextSize.size1,
+              width: PosTextSize.size1));
+    }
+    if (order.waitingCard != null) {
+      bytes += generator.text('The: ${order.waitingCard}',
+          styles: const PosStyles(
+              align: PosAlign.center,
+              bold: true,
+              height: PosTextSize.size1,
+              width: PosTextSize.size1));
+    }
+
+    // Date and time - Convert order creation time to GMT+7 and add current print time
+    final orderTimeGMT7 = order.createdAt.add(const Duration(hours: 7));
+    final currentTimeGMT7 = DateTime.now();
+
+    bytes += generator.text(
+        'Thoi gian tao: ${DateFormat('dd/MM/yyyy HH:mm').format(orderTimeGMT7)}',
+        styles: const PosStyles(
+            align: PosAlign.left,
+            height: PosTextSize.size1,
+            width: PosTextSize.size1));
+
+    bytes += generator.text(
+        'Thoi gian in: ${DateFormat('dd/MM/yyyy HH:mm').format(currentTimeGMT7)}',
+        styles: const PosStyles(
+            align: PosAlign.left,
+            height: PosTextSize.size1,
+            width: PosTextSize.size1));
+
+    // Cashier info
+    if (order.creator != null) {
+      bytes += generator.text(
+          'Nhan vien: ${StringUtils.removeAccents(order.creator!.fullName)}',
+          styles: const PosStyles(
+              align: PosAlign.left,
+              height: PosTextSize.size1,
+              width: PosTextSize.size1,
+              bold: true));
+    }
+
+    // Customer info if available
+    if (order.client != null) {
+      bytes += generator.text(
+          'Khach hang: ${StringUtils.removeAccents(order.client!.name!)}',
+          styles: const PosStyles(
+              align: PosAlign.left,
+              height: PosTextSize.size1,
+              width: PosTextSize.size1));
+      bytes += generator.text('SDT: ${order.client!.phone}',
+          styles: const PosStyles(
+              align: PosAlign.left,
+              height: PosTextSize.size1,
+              width: PosTextSize.size1));
+      if (order.orderType == 'SHIPPING' && order.shipping!.address != null) {
+        bytes += generator.text(
+            'Dia chi: ${StringUtils.removeAccents(order.shipping!.address!)}',
+            styles: const PosStyles(
+                align: PosAlign.left,
+                height: PosTextSize.size1,
+                width: PosTextSize.size1));
+      }
+    }
+
+    // Divider
+    bytes += generator.hr();
+
+    // Product header - INCREASED SIZE
+    bytes += generator.row([
+      PosColumn(
+        text: 'SL',
+        width: 1,
+        styles: const PosStyles(
+            bold: true, height: PosTextSize.size1, width: PosTextSize.size1),
+      ),
+      PosColumn(
+        text: 'San pham',
+        width: 5,
+        styles: const PosStyles(
+            bold: true, height: PosTextSize.size1, width: PosTextSize.size1),
+      ),
+      PosColumn(
+        text: 'D.Gia',
+        width: 3,
+        styles: const PosStyles(
+            bold: true,
+            align: PosAlign.right,
+            height: PosTextSize.size1,
+            width: PosTextSize.size1),
+      ),
+      PosColumn(
+        text: 'T.Tien',
+        width: 3,
+        styles: const PosStyles(
+            bold: true,
+            align: PosAlign.right,
+            height: PosTextSize.size1,
+            width: PosTextSize.size1),
+      ),
+    ]);
+
+    // Products
+    for (var product in order.products) {
+      // Check if product name is too long and needs wrapping
+      final productName = StringUtils.removeAccents(product.name);
+      final maxLineLength = 19; // Maximum characters per line for width 5
+
+      if (productName.length <= maxLineLength) {
+        // Single line product
+        bytes += generator.row([
+          PosColumn(
+            text: "${product.quantity}",
+            width: 1,
+            styles: const PosStyles(
+                height: PosTextSize.size1, width: PosTextSize.size1),
+          ),
+          PosColumn(
+            text: productName,
+            width: 5,
+            styles: const PosStyles(
+                height: PosTextSize.size1, width: PosTextSize.size1),
+          ),
+          PosColumn(
+            text: FormatUtils.formatNumber(_calculateProductPrice(product)),
+            width: 3,
+            styles: const PosStyles(
+                align: PosAlign.right,
+                height: PosTextSize.size1,
+                width: PosTextSize.size1),
+          ),
+          PosColumn(
+            text:
+                FormatUtils.formatNumber(_calculateProductTotalPrice(product)),
+            width: 3,
+            styles: const PosStyles(
+                align: PosAlign.right,
+                height: PosTextSize.size1,
+                width: PosTextSize.size1),
+          ),
+        ]);
+      } else {
+        // Multi-line product - first line with quantity, price, total
+        final firstLine = productName.substring(0, maxLineLength);
+        bytes += generator.row([
+          PosColumn(
+            text: "${product.quantity}",
+            width: 1,
+            styles: const PosStyles(
+                height: PosTextSize.size1, width: PosTextSize.size1),
+          ),
+          PosColumn(
+            text: firstLine,
+            width: 5,
+            styles: const PosStyles(
+                height: PosTextSize.size1, width: PosTextSize.size1),
+          ),
+          PosColumn(
+            text: FormatUtils.formatNumber(_calculateProductPrice(product)),
+            width: 3,
+            styles: const PosStyles(
+                align: PosAlign.right,
+                height: PosTextSize.size1,
+                width: PosTextSize.size1),
+          ),
+          PosColumn(
+            text:
+                FormatUtils.formatNumber(_calculateProductTotalPrice(product)),
+            width: 3,
+            styles: const PosStyles(
+                align: PosAlign.right,
+                height: PosTextSize.size1,
+                width: PosTextSize.size1),
+          ),
+        ]);
+
+        // Additional lines for remaining text
+        String remainingText = productName.substring(maxLineLength);
+        while (remainingText.isNotEmpty) {
+          final nextLine = remainingText.length > maxLineLength
+              ? remainingText.substring(0, maxLineLength)
+              : remainingText;
+
+          bytes += generator.row([
+            PosColumn(text: '', width: 1),
+            PosColumn(
+              text: nextLine,
+              width: 5,
+              styles: const PosStyles(
+                  height: PosTextSize.size1, width: PosTextSize.size1),
+            ),
+            PosColumn(text: '', width: 3),
+            PosColumn(text: '', width: 3),
+          ]);
+
+          remainingText = remainingText.length > maxLineLength
+              ? remainingText.substring(maxLineLength)
+              : '';
+        }
+      }
+
+      // Product attributes if any
+      if (product.attributes.isNotEmpty) {
+        for (var attr in product.attributes) {
+          bytes += generator.row([
+            PosColumn(
+              text: '',
+              width: 1,
+            ),
+            PosColumn(
+              text: '+ ${StringUtils.removeAccents(attr.name)}',
+              width: 5,
+              styles: const PosStyles(
+                  height: PosTextSize.size1, width: PosTextSize.size1),
+            ),
+            PosColumn(
+              text: FormatUtils.formatNumber(attr.price),
+              width: 3,
+              styles: const PosStyles(
+                  align: PosAlign.right,
+                  height: PosTextSize.size1,
+                  width: PosTextSize.size1),
+            ),
+            PosColumn(
+              text: FormatUtils.formatNumber(attr.price * product.quantity),
+              width: 3,
+              styles: const PosStyles(
+                  align: PosAlign.right,
+                  height: PosTextSize.size1,
+                  width: PosTextSize.size1),
+            ),
+          ]);
+        }
+      }
+
+      // Product note if any
+      if (product.note != null && product.note!.isNotEmpty) {
+        bytes += generator.row([
+          PosColumn(
+            text: '',
+            width: 2,
+          ),
+          PosColumn(
+            text: 'Ghi chu: ${StringUtils.removeAccents(product.note!)}',
+            width: 10,
+            styles: const PosStyles(
+                height: PosTextSize.size1, width: PosTextSize.size1),
+          ),
+        ]);
+      }
+    }
+
+    // Divider
+    bytes += generator.hr();
+
+    // Totals
+    bytes += generator.row([
+      PosColumn(
+        text: 'Thanh tien:',
+        width: 6,
+        styles: const PosStyles(bold: true),
+      ),
+      PosColumn(
+        text: '${FormatUtils.formatNumber(order.totalMoney)} d',
+        width: 6,
+        styles: const PosStyles(bold: true, align: PosAlign.right),
+      ),
+    ]);
+
+    // Discount if any
+    if (order.totalDiscount > 0) {
+      bytes += generator.row([
+        PosColumn(
+          text: 'Giam gia:',
+          width: 6,
+        ),
+        PosColumn(
+          text: '${FormatUtils.formatNumber(order.totalDiscount)} d',
+          width: 6,
+          styles: const PosStyles(align: PosAlign.right),
+        ),
+      ]);
+    }
+
+    // Shipping fee if any
+    if (order.totalShipping != null && order.totalShipping! > 0) {
+      bytes += generator.row([
+        PosColumn(
+          text: 'Phi van chuyen:',
+          width: 6,
+        ),
+        PosColumn(
+          text: '${FormatUtils.formatNumber(order.totalShipping!)} d',
+          width: 6,
+          styles: const PosStyles(align: PosAlign.right),
+        ),
+      ]);
+    }
+
+    // Tax if any
+    if (order.tax != null && order.tax! > 0) {
+      bytes += generator.row([
+        PosColumn(
+          text: 'VAT (${order.tax}%):',
+          width: 6,
+        ),
+        PosColumn(
+          text:
+              '${FormatUtils.formatNumber((order.totalMoney - order.totalDiscount) * (order.tax! / 100))} d',
+          width: 6,
+          styles: const PosStyles(align: PosAlign.right),
+        ),
+      ]);
+    }
+
+    // Total payment - INCREASED SIZE
+    bytes += generator.hr();
+    bytes += generator.row([
+      PosColumn(
+        text: 'Tong thanh toan:',
+        width: 6,
+        styles: const PosStyles(
+            bold: true, height: PosTextSize.size1, width: PosTextSize.size1),
+      ),
+      PosColumn(
+        text: '${FormatUtils.formatNumber(order.totalMoneyPayment)} d',
+        width: 6,
+        styles: const PosStyles(
+            bold: true,
+            align: PosAlign.right,
+            height: PosTextSize.size1,
+            width: PosTextSize.size1),
+      ),
+    ]);
+
+    // Payment method
+    bytes += generator.row([
+      PosColumn(
+        text: 'Phuong thuc thanh toan:',
+        width: 6,
+      ),
+      PosColumn(
+        text: StringUtils.removeAccents(
+            _getPaymentMethodName(order.paymentMethod)),
+        width: 6,
+        styles: const PosStyles(align: PosAlign.right),
+      ),
+    ]);
+
+    // Payment status
+    bytes += generator.row([
+      PosColumn(
+        text: 'Trang thai thanh toan:',
+        width: 6,
+      ),
+      PosColumn(
+        text: StringUtils.removeAccents(
+            _getPaymentStatusName(order.paymentStatus)),
+        width: 6,
+        styles: const PosStyles(align: PosAlign.right),
+      ),
+    ]);
+
+    // order note
+    if (order.note != null) {
+      bytes += generator.row([
+        PosColumn(
+          text: 'Ghi chu:',
+          width: 6,
+        ),
+        PosColumn(
+          text: StringUtils.removeAccents(_getPaymentStatusName(order.note!)),
+          width: 6,
+          styles: const PosStyles(align: PosAlign.right),
+        ),
+      ]);
+    }
+
+    // QR code for order tracking (optional)
+    if (order.qrBank != null) {
+      bytes += generator.text('Ma QR thanh toan',
+          styles: const PosStyles(align: PosAlign.center));
+      bytes += generator.qrcode(order.qrBank!);
+    }
+
+    // Footer - INCREASED SIZE
+    bytes += generator.feed(1);
+    bytes += generator.text('Tra cuu hoa don dien tu tai',
+        styles: const PosStyles(
+            align: PosAlign.center,
+            height: PosTextSize.size1,
+            width: PosTextSize.size1));
+    bytes += generator.text('https://tracuuhddt.zamiapp.vn',
+        styles: const PosStyles(align: PosAlign.center));
+    if (!isReprint && taxCode != null) {
+      bytes += generator.text('MST: ${taxCode}',
+          styles: const PosStyles(align: PosAlign.center));
+    }
+    bytes += generator.text('Ma tra cuu: ${order.code}',
+        styles: const PosStyles(align: PosAlign.center));
+    bytes += generator.feed(1);
+    bytes += generator.text('Cam on quy khach da mua hang!',
+        styles: const PosStyles(
+            align: PosAlign.center,
+            height: PosTextSize.size1,
+            width: PosTextSize.size1));
+    if (!isReprint) {
+      bytes += generator.text('Hotline: ${phone ?? ''}',
+          styles: const PosStyles(align: PosAlign.center));
+    }
+
+    bytes += generator.text('Powered by Zami Solution',
+        styles: const PosStyles(align: PosAlign.center));
+
+    // Cut paper
+    bytes += generator.cut();
+
+    return bytes;
+  }
+
+  /// Gets a human-readable payment method name
+  static String _getPaymentMethodName(String method) {
+    switch (method) {
+      case 'CASH':
+        return 'Tiền mặt';
+      case 'BANK':
+        return 'Chuyển khoản';
+      case 'VISA-MASTERCARD':
+        return 'Thẻ tín dụng';
+      case 'MOMO':
+        return 'Ví MoMo';
+      case 'ZALOPAY':
+        return 'ZaloPay';
+      default:
+        return method;
+    }
+  }
+
+  /// Gets a human-readable payment status name
+  static String _getPaymentStatusName(String status) {
+    switch (status) {
+      case 'PAID':
+        return 'Đã thanh toán';
+      case 'UNPAID':
+        return 'Chưa thanh toán';
+      case 'PARTIALLY_PAID':
+        return 'Thanh toán một phần';
+      case 'REFUNDED':
+        return 'Đã hoàn tiền';
+      case 'CANCELED':
+        return 'Đã hủy';
+      default:
+        return status;
+    }
+  }
+
+  /// Opens the cash drawer connected to the receipt printer
+  static Future<void> openCashDrawer(BuildContext context) async {
+    try {
+      // Load all receipt printers
+      final prefs = await SharedPreferences.getInstance();
+      final String? printersJson = prefs.getString('CACHED_PRINTERS');
+
+      if (printersJson == null) {
+        throw Exception('No printers configured');
+      }
+
+      final List<dynamic> decodedList = json.decode(printersJson);
+      final receiptPrinters = decodedList
+          .map((item) => PrinterConfig.fromJson(item))
+          .where((printer) => printer.printerType == 'RECEIPT')
+          .toList();
+
+      if (receiptPrinters.isEmpty) {
+        throw Exception('No receipt printers configured');
+      }
+
+      // Generate cash drawer open command
+      final profile = await CapabilityProfile.load();
+      final generator = Generator(PaperSize.mm80, profile);
+      List<int> bytes = [];
+
+      // Add cash drawer open command
+      bytes += generator.drawer();
+      //bytes += generator.cut();
+
+      // Send to all receipt printers
+      for (var printer in receiptPrinters) {
+        try {
+          if (printer.connectionMethod == 'LAN') {
+            final String ipAddress = printer.settings['ipAddress'] as String;
+            final int port = int.parse(printer.settings['port'] as String);
+
+            await PrinterService.sendToPrinter(ipAddress, port, bytes);
+          } else if (printer.connectionMethod == 'USB') {
+            if (printer.settings['vendorId'] != null &&
+                printer.settings['productId'] != null) {
+              final vendorId =
+                  int.parse(printer.settings['vendorId'].toString());
+              final productId =
+                  int.parse(printer.settings['productId'].toString());
+              // Connect to printer
+              final connected =
+                  await PrinterService.connectUsbPrinter(vendorId, productId);
+              if (!connected) {
+                throw Exception('Cannot connect to USB printer');
+              }
+
+              // Send data to printer
+              final success = await PrinterService.sendToUsbPrinter(bytes);
+              if (!success) {
+                throw Exception('Failed to send data to USB printer');
+              }
+            }
+          }
+        } catch (e) {
+          print('Error opening cash drawer on printer: $e');
+          // Continue with next printer
+        }
+      }
+    } catch (e) {
+      print('Error opening cash drawer: $e');
+      // // Show error message
+      // if (context.mounted) {
+      //   ScaffoldMessenger.of(context).showSnackBar(
+      //     SnackBar(
+      //       content: Text('Không thể mở ngăn kéo: $e'),
+      //       backgroundColor: Colors.red,
+      //     ),
+      //   );
+      // }
+    }
+  }
+
+  /// Prints workshift information to receipt printer
+  static Future<void> printWorkshiftInfo(
+    BuildContext context,
+    Map<String, String> workshiftInfo,
+  ) async {
+    try {
+      // Load all receipt printers
+      final prefs = await SharedPreferences.getInstance();
+      final String? printersJson = prefs.getString('CACHED_PRINTERS');
+
+      if (printersJson == null) {
+        throw Exception('No printers configured');
+      }
+
+      final List<dynamic> decodedList = json.decode(printersJson);
+      final receiptPrinters = decodedList
+          .map((item) => PrinterConfig.fromJson(item))
+          .where((printer) => printer.printerType == 'RECEIPT')
+          .toList();
+
+      if (receiptPrinters.isEmpty) {
+        throw Exception('No receipt printers configured');
+      }
+
+      // Generate receipt data
+      final profile = await CapabilityProfile.load();
+      final generator = Generator(PaperSize.mm80, profile);
+      List<int> bytes = [];
+
+      // Convert all text to ASCII for better printer compatibility
+      final title = StringUtils.removeAccents(
+          workshiftInfo['title'] ?? 'THONG TIN CA LAM VIEC');
+      final date = workshiftInfo['date'] ?? '';
+      final time = workshiftInfo['time'] ?? '';
+      final branch = StringUtils.removeAccents(workshiftInfo['branch'] ?? '');
+      final user = StringUtils.removeAccents(workshiftInfo['user'] ?? '');
+      final startTime = workshiftInfo['workshiftStartTime'] ?? '';
+
+      // Add store name
+      bytes += generator.text(
+        title,
+        styles: const PosStyles(
+          align: PosAlign.center,
+          bold: true,
+          height: PosTextSize.size2,
+          width: PosTextSize.size2,
+        ),
+      );
+
+      bytes += generator.text(
+        'Chi nhanh: ${StringUtils.removeAccents(branch)}',
+        styles: const PosStyles(align: PosAlign.center),
+      );
+
+      bytes += generator.text(
+        'Nhan vien: ${StringUtils.removeAccents(user)}',
+        styles: const PosStyles(align: PosAlign.center),
+      );
+
+      bytes += generator.hr();
+
+      // Workshift details
+      bytes += generator.text(
+        'THONG TIN CA LAM VIEC',
+        styles: const PosStyles(
+          align: PosAlign.center,
+          bold: true,
+        ),
+      );
+
+      bytes += generator.row([
+        PosColumn(
+          text: 'Thoi gian bat dau:',
+          width: 6,
+          styles: const PosStyles(bold: true),
+        ),
+        PosColumn(
+          text: startTime,
+          width: 6,
+          styles: const PosStyles(align: PosAlign.right),
+        ),
+      ]);
+
+      //thời gian in
+      bytes += generator.row([
+        PosColumn(
+          text: 'Thoi gian in:',
+          width: 6,
+          styles: const PosStyles(bold: true),
+        ),
+        PosColumn(
+          text: '$time - $date',
+          width: 6,
+          styles: const PosStyles(align: PosAlign.right),
+        ),
+      ]);
+
+      bytes += generator.hr();
+
+      // Financial summary
+      bytes += generator.row([
+        PosColumn(
+          text: 'Tien dau ca:',
+          width: 6,
+        ),
+        PosColumn(
+          text: workshiftInfo['firstShiftMoney'] ?? '',
+          width: 6,
+          styles: const PosStyles(align: PosAlign.right),
+        ),
+      ]);
+
+      bytes += generator.row([
+        PosColumn(
+          text: 'Doanh thu:',
+          width: 6,
+        ),
+        PosColumn(
+          text: workshiftInfo['revenue'] ?? '',
+          width: 6,
+          styles: const PosStyles(align: PosAlign.right),
+        ),
+      ]);
+
+      bytes += generator.row([
+        PosColumn(
+          text: 'Thu:',
+          width: 6,
+        ),
+        PosColumn(
+          text: workshiftInfo['receipt'] ?? '',
+          width: 6,
+          styles: const PosStyles(align: PosAlign.right),
+        ),
+      ]);
+
+      bytes += generator.row([
+        PosColumn(
+          text: 'Chi:',
+          width: 6,
+        ),
+        PosColumn(
+          text: workshiftInfo['payout'] ?? '',
+          width: 6,
+          styles: const PosStyles(align: PosAlign.right),
+        ),
+      ]);
+
+      bytes += generator.row([
+        PosColumn(
+          text: 'Tien ship:',
+          width: 6,
+        ),
+        PosColumn(
+          text: workshiftInfo['shippingMoney'] ?? '',
+          width: 6,
+          styles: const PosStyles(align: PosAlign.right),
+        ),
+      ]);
+
+      bytes += generator.row([
+        PosColumn(
+          text: 'Du kien:',
+          width: 6,
+          styles: const PosStyles(bold: true),
+        ),
+        PosColumn(
+          text: workshiftInfo['expectedMoney'] ?? '',
+          width: 6,
+          styles: const PosStyles(align: PosAlign.right, bold: true),
+        ),
+      ]);
+      bytes += generator.row([
+        PosColumn(text: '(doanh thu + tien dau ca)', width: 8),
+        PosColumn(text: '', width: 4),
+      ]);
+
+      bytes += generator.row([
+        PosColumn(
+          text: 'Tien mat thuc te:',
+          width: 6,
+          styles: const PosStyles(bold: true),
+        ),
+        PosColumn(
+          text: workshiftInfo['actualMoney'] ?? '',
+          width: 6,
+          styles: const PosStyles(align: PosAlign.right, bold: true),
+        ),
+      ]);
+
+      bytes += generator.hr();
+
+      // Revenue details
+      bytes += generator.text(
+        'CHI TIET DOANH THU',
+        styles: const PosStyles(
+          align: PosAlign.center,
+          bold: true,
+        ),
+      );
+
+      bytes += generator.row([
+        PosColumn(
+          text: 'Tien mat:',
+          width: 6,
+        ),
+        PosColumn(
+          text: workshiftInfo['cashRevenue'] ?? '',
+          width: 6,
+          styles: const PosStyles(align: PosAlign.right),
+        ),
+      ]);
+
+      bytes += generator.row([
+        PosColumn(
+          text: 'Chuyen khoan:',
+          width: 6,
+        ),
+        PosColumn(
+          text: workshiftInfo['bankRevenue'] ?? '',
+          width: 6,
+          styles: const PosStyles(align: PosAlign.right),
+        ),
+      ]);
+
+      bytes += generator.row([
+        PosColumn(
+          text: 'Momo:',
+          width: 6,
+        ),
+        PosColumn(
+          text: workshiftInfo['momoRevenue'] ?? '',
+          width: 6,
+          styles: const PosStyles(align: PosAlign.right),
+        ),
+      ]);
+
+      bytes += generator.row([
+        PosColumn(
+          text: 'VNPay:',
+          width: 6,
+        ),
+        PosColumn(
+          text: workshiftInfo['vnpayRevenue'] ?? '',
+          width: 6,
+          styles: const PosStyles(align: PosAlign.right),
+        ),
+      ]);
+
+      bytes += generator.row([
+        PosColumn(
+          text: 'ZaloPay:',
+          width: 6,
+        ),
+        PosColumn(
+          text: workshiftInfo['zalopayRevenue'] ?? '',
+          width: 6,
+          styles: const PosStyles(align: PosAlign.right),
+        ),
+      ]);
+
+      bytes += generator.row([
+        PosColumn(
+          text: 'Visa/Master:',
+          width: 6,
+        ),
+        PosColumn(
+          text: workshiftInfo['visaRevenue'] ?? '',
+          width: 6,
+          styles: const PosStyles(align: PosAlign.right),
+        ),
+      ]);
+
+      bytes += generator.hr();
+
+      // Payout details
+      bytes += generator.text(
+        'CHI TIET CHI',
+        styles: const PosStyles(
+          align: PosAlign.center,
+          bold: true,
+        ),
+      );
+
+      bytes += generator.row([
+        PosColumn(
+          text: 'Tien mat:',
+          width: 6,
+        ),
+        PosColumn(
+          text: workshiftInfo['cashPayout'] ?? '',
+          width: 6,
+          styles: const PosStyles(align: PosAlign.right),
+        ),
+      ]);
+
+      bytes += generator.row([
+        PosColumn(
+          text: 'Chuyen khoan:',
+          width: 6,
+        ),
+        PosColumn(
+          text: workshiftInfo['bankPayout'] ?? '',
+          width: 6,
+          styles: const PosStyles(align: PosAlign.right),
+        ),
+      ]);
+
+      bytes += generator.row([
+        PosColumn(
+          text: 'Momo:',
+          width: 6,
+        ),
+        PosColumn(
+          text: workshiftInfo['momoPayout'] ?? '',
+          width: 6,
+          styles: const PosStyles(align: PosAlign.right),
+        ),
+      ]);
+
+      bytes += generator.row([
+        PosColumn(
+          text: 'VNPay:',
+          width: 6,
+        ),
+        PosColumn(
+          text: workshiftInfo['vnpayPayout'] ?? '',
+          width: 6,
+          styles: const PosStyles(align: PosAlign.right),
+        ),
+      ]);
+
+      bytes += generator.row([
+        PosColumn(
+          text: 'ZaloPay:',
+          width: 6,
+        ),
+        PosColumn(
+          text: workshiftInfo['zalopayPayout'] ?? '',
+          width: 6,
+          styles: const PosStyles(align: PosAlign.right),
+        ),
+      ]);
+
+      bytes += generator.row([
+        PosColumn(
+          text: 'Visa/Master:',
+          width: 6,
+        ),
+        PosColumn(
+          text: workshiftInfo['visaPayout'] ?? '',
+          width: 6,
+          styles: const PosStyles(align: PosAlign.right),
+        ),
+      ]);
+
+      bytes += generator.hr();
+
+      // Footer
+      bytes += generator.text(
+        'Cam on ban da su dung dich vu cua chung toi!',
+        styles: const PosStyles(align: PosAlign.center),
+      );
+
+      bytes += generator.feed(2);
+      bytes += generator.cut();
+
+      // Send to all receipt printers
+      for (var printer in receiptPrinters) {
+        try {
+          if (printer.connectionMethod == 'LAN') {
+            final String ipAddress = printer.settings['ipAddress'] as String;
+            final int port = int.parse(printer.settings['port'] as String);
+            await PrinterService.sendToPrinter(ipAddress, port, bytes);
+          } else if (printer.connectionMethod == 'USB') {
+            final int vendorId =
+                int.parse(printer.settings['vendorId'] as String);
+            final int productId =
+                int.parse(printer.settings['productId'] as String);
+            await PrinterService.connectUsbPrinter(vendorId, productId);
+            await PrinterService.sendToUsbPrinter(bytes);
+          }
+          // Add a small delay between prints
+          await Future.delayed(const Duration(milliseconds: 500));
+        } catch (e) {
+          print('Error printing to printer: $e');
+          // Continue to next printer
+        }
+      }
+    } catch (e) {
+      throw Exception('Error printing workshift info: $e');
+    }
+  }
+}

@@ -1,3 +1,4 @@
+import 'package:app/invoice.dart';
 import 'package:esc_pos_utils/esc_pos_utils.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
@@ -10,7 +11,52 @@ import 'usb_service.dart';
 import 'package:image/image.dart' as img;
 import 'package:intl/intl.dart';
 
-void main() => runApp(const MyApp());
+final sampleData = ReceiptData(
+  isProvisional: false,
+  isReprint: false,
+  enableWifi: false,
+  wifiInfo: null,
+  taxCode: null,
+  phone: '0937155085',
+  order: OrderData(
+    code: 'DH-AOYX-4423',
+    branch: BranchData(
+      name: 'Zami Solution FNB',
+      address: null,
+    ),
+    table: null,
+    waitingCard: null,
+    createdAt: DateTime.parse('2025-09-20 08:55:00'),
+    creator: UserData(fullName: 'Zami FnB'),
+    client: null,
+    orderType: 'DINE_IN',
+    shipping: null,
+    products: [
+      ProductData(
+        name:
+            'Ten san pham dai th iet dai dai dai dai dai dai dai dai da i dai dai dai dai',
+        quantity: 1,
+        price: 20000,
+        attributes: [
+          AttributeData(name: 'Thuoc tinh 1', price: 5000),
+          AttributeData(name: 'Thuoc tinh 2', price: 3000),
+        ],
+        note: 'Ghi chu san pham nay rat dai va co nhieu thong tin chi tiet',
+      ),
+    ],
+    totalMoney: 245000,
+    totalDiscount: 0,
+    totalShipping: null,
+    tax: null,
+    totalMoneyPayment: 245000,
+    paymentMethod: 'CASH',
+    paymentStatus: 'PAID',
+    note: null,
+    qrBank: 'DH-AOYX-4423',
+  ),
+);
+final GlobalKey _keyPrint = GlobalKey();
+void main() => runApp(MyApp());
 
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
@@ -273,7 +319,9 @@ class _PrinterDemoPageState extends State<PrinterDemoPage> {
                           const SizedBox(width: 12),
                           Expanded(
                             child: ElevatedButton.icon(
-                              onPressed: _showPreviewDialog,
+                              onPressed: () {
+                                _service.printInvoice(sampleData, context);
+                              },
                               icon: const Icon(Icons.print_outlined),
                               label: const Text('In thử LAN'),
                             ),
@@ -445,7 +493,10 @@ class _PrinterDemoPageState extends State<PrinterDemoPage> {
           child: RepaintBoundary(
             key: previewContainerKey,
             child: Container(
-                width: 380,
+                width:
+                    380, // Chiều rộng hóa đơn (tương đương khổ giấy in mm80 ~ 576px)
+                height:
+                    600, // Chiều cao tạm fix, bạn có thể thay đổi theo nhu cầu
                 color: Colors.white,
                 child: Column(
                   children: [
