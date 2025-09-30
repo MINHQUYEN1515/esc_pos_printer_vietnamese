@@ -6,6 +6,8 @@ import 'package:flutter/services.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 
 import 'dart:ui' as ui;
+import 'label_print_service.dart';
+import 'label_widget.dart';
 import 'print_service.dart';
 import 'usb_service.dart';
 import 'package:image/image.dart' as img;
@@ -42,27 +44,6 @@ final receipt = ReceiptData(
       address: "456 Nguyễn Huệ, Quận 1, TP.HCM",
     ),
     products: [
-      ProductData(
-        name: "Cà phê sữa đá size L",
-        quantity: 1,
-        price: 20000,
-        attributes: [
-          AttributeData(name: "Thêm sữa", price: 5000),
-          AttributeData(name: "Ít đá", price: 0),
-          AttributeData(name: "Không đường", price: 0),
-        ],
-        note: "Uống tại chỗ",
-      ),
-      ProductData(
-        name: "Trà đào cam sả",
-        quantity: 2,
-        price: 45000,
-        attributes: [
-          AttributeData(name: "Thêm topping đào", price: 8000),
-          AttributeData(name: "Ít ngọt", price: 0),
-        ],
-        note: "Để riêng đá",
-      ),
       ProductData(
         name: "Bánh mì thịt nướng",
         quantity: 1,
@@ -385,12 +366,21 @@ class _PrinterDemoPageState extends State<PrinterDemoPage> {
                         ],
                       ),
                       const SizedBox(height: 12),
-                      _buildLabelWidget(),
+                      // LabelWidget(
+                      //   title: "In test",
+                      //   content: "Hi bạn\n Tớ là Minh Quyên",
+                      // ),
                       const SizedBox(height: 12),
                       Align(
                         alignment: Alignment.centerLeft,
                         child: ElevatedButton.icon(
-                          onPressed: _printLabelXPrinter,
+                          onPressed: () {
+                            LabelPrintService.printLabelWidgetWithContext(
+                                title: "In test",
+                                content: "Hi bạn\n Tớ là Minh Quyên",
+                                printerIp: _lanIpController.text,
+                                context: context);
+                          },
                           icon: const Icon(Icons.print),
                           label: const Text('In tem'),
                         ),

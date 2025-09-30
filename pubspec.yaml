@@ -43,6 +43,7 @@ dependencies:
   qr_flutter: ^4.1.0
   equatable: ^2.0.7
   screenshot: ^3.0.0
+  dio: ^5.9.0
 
 
 
@@ -73,6 +74,7 @@ flutter:
   assets:
     - assets/fonts/Roboto-Regular.ttf
     - assets/fonts/Roboto-Bold.ttf
+    - assets/images/
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/assets-and-images/#resolution-aware

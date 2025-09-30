@@ -14,6 +14,26 @@ class Invoice extends StatefulWidget {
 }
 
 class _InvoiceState extends State<Invoice> {
+  // late Uint8List bytes;
+  // final dio = Dio();
+
+  // @override
+  // void initState() {
+  //   fetch();
+  //   super.initState();
+  // }
+
+  // void fetch() async {
+  //   final response = await dio.get(
+  //     "https://cdn-new.topcv.vn/unsafe/140x/https://static.topcv.vn/company_logos/0E6pkRSt8cpHLo4OXHPoWNpxIiPWAQN1_1751627313____057cf59a177e4cacee6bb8ad9319e08b.png",
+  //     options: Options(responseType: ResponseType.bytes),
+  //   );
+
+  //   bytes = Uint8List.fromList(response.data); // đây là Uint8List
+
+  //   // dùng image trong widget in
+  // }
+
   @override
   Widget build(BuildContext context) {
     final content = Column(
@@ -63,18 +83,20 @@ class _InvoiceState extends State<Invoice> {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Image.network(
-            alignment: Alignment.center,
-            width: 70,
-            height: 70,
-            color: Colors.black,
-            "https://cdn-new.topcv.vn/unsafe/140x/https://static.topcv.vn/company_logos/0E6pkRSt8cpHLo4OXHPoWNpxIiPWAQN1_1751627313____057cf59a177e4cacee6bb8ad9319e08b.png"),
-        // Header Section
+        //logo
+        Image.asset(
+          'assets/images/image.png',
+          width: 120,
+          height: 120,
+          // fit: BoxFit.cover,
+        ),
+
         Text(
           widget.receiptData.isProvisional
               ? ' HÓA ĐƠN TẠM TÍNH'
               : 'HÓA ĐƠN THANH TOÁN',
           style: const TextStyle(
+            fontFamily: 'Roboto',
             fontSize: 20,
             fontWeight: FontWeight.bold,
           ),
@@ -83,7 +105,10 @@ class _InvoiceState extends State<Invoice> {
         if (widget.receiptData.isReprint)
           const Text(
             '(In lại)',
-            style: TextStyle(fontSize: 20, fontWeight: FontWeight.w500),
+            style: TextStyle(
+                fontFamily: 'Roboto',
+                fontSize: 20,
+                fontWeight: FontWeight.w500),
             textAlign: TextAlign.center,
           ),
       ],
@@ -97,6 +122,7 @@ class _InvoiceState extends State<Invoice> {
         Text(
           'Zami Solution FNB',
           style: const TextStyle(
+            fontFamily: 'Roboto',
             fontSize: 17,
             fontWeight: FontWeight.w600,
           ),
@@ -105,7 +131,10 @@ class _InvoiceState extends State<Invoice> {
         if (widget.receiptData.order.branch?.address != null)
           Text(
             widget.receiptData.order.branch!.address!,
-            style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w500),
+            style: const TextStyle(
+                fontFamily: 'Roboto',
+                fontSize: 17,
+                fontWeight: FontWeight.w500),
             textAlign: TextAlign.center,
           ),
       ],
@@ -120,6 +149,7 @@ class _InvoiceState extends State<Invoice> {
         const Text(
           'WIFI MIỄN PHÍ',
           style: TextStyle(
+            fontFamily: 'Roboto',
             fontWeight: FontWeight.bold,
             fontSize: 17,
           ),
@@ -127,12 +157,14 @@ class _InvoiceState extends State<Invoice> {
         ),
         Text(
           'Tên: ${widget.receiptData.wifiInfo!['name']!}',
-          style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w500),
+          style: const TextStyle(
+              fontFamily: 'Roboto', fontSize: 17, fontWeight: FontWeight.w500),
           textAlign: TextAlign.center,
         ),
         Text(
           'Mật khẩu: ${widget.receiptData.wifiInfo!['password']!}',
-          style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w500),
+          style: const TextStyle(
+              fontFamily: 'Roboto', fontSize: 17, fontWeight: FontWeight.w500),
           textAlign: TextAlign.center,
         ),
         _buildDivider(),
@@ -147,17 +179,24 @@ class _InvoiceState extends State<Invoice> {
       children: [
         Text(
           'Mã đơn: ${widget.receiptData.order.code}',
-          style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w500),
+          style: const TextStyle(
+              fontFamily: 'Roboto', fontSize: 15, fontWeight: FontWeight.w500),
         ),
         if (widget.receiptData.order.table != null)
           Text(
             'Bàn: ${widget.receiptData.order.table!.name}',
-            style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w500),
+            style: const TextStyle(
+                fontFamily: 'Roboto',
+                fontSize: 15,
+                fontWeight: FontWeight.w500),
           ),
         if (widget.receiptData.order.waitingCard != null)
           Text(
             'Thẻ: ${widget.receiptData.order.waitingCard}',
-            style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w500),
+            style: const TextStyle(
+                fontFamily: 'Roboto',
+                fontSize: 15,
+                fontWeight: FontWeight.w500),
           ),
         _buildDivider(),
       ],
@@ -170,16 +209,18 @@ class _InvoiceState extends State<Invoice> {
     final currentTimeGMT7 = DateTime.now();
 
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.center,
+      crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: [
         Text(
           'Thời gian tạo: ${DateFormat('dd/MM/yyyy HH:mm').format(orderTimeGMT7)}',
-          style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w500),
+          style: const TextStyle(
+              fontFamily: 'Roboto', fontSize: 15, fontWeight: FontWeight.w500),
         ),
         Text(
           'Thời gian in: ${DateFormat('dd/MM/yyyy HH:mm').format(currentTimeGMT7)}',
-          style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w500),
+          style: const TextStyle(
+              fontFamily: 'Roboto', fontSize: 15, fontWeight: FontWeight.w500),
         ),
       ],
     );
@@ -193,6 +234,7 @@ class _InvoiceState extends State<Invoice> {
         Text(
           'Nhân viên: ${widget.receiptData.order.creator!.fullName}',
           style: const TextStyle(
+            fontFamily: 'Roboto',
             fontWeight: FontWeight.bold,
             fontSize: 15,
           ),
@@ -208,17 +250,22 @@ class _InvoiceState extends State<Invoice> {
       children: [
         Text(
           'Khách hàng: ${widget.receiptData.order.client!.name!}',
-          style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w500),
+          style: const TextStyle(
+              fontFamily: 'Roboto', fontSize: 15, fontWeight: FontWeight.w500),
         ),
         Text(
           'SDT: ${widget.receiptData.order.client!.phone}',
-          style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w500),
+          style: const TextStyle(
+              fontFamily: 'Roboto', fontSize: 15, fontWeight: FontWeight.w500),
         ),
         if (widget.receiptData.order.orderType == 'SHIPPING' &&
             widget.receiptData.order.shipping?.address != null)
           Text(
             'Địa chỉ: ${widget.receiptData.order.shipping!.address!}',
-            style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w500),
+            style: const TextStyle(
+                fontFamily: 'Roboto',
+                fontSize: 15,
+                fontWeight: FontWeight.w500),
           ),
       ],
     );
@@ -233,6 +280,7 @@ class _InvoiceState extends State<Invoice> {
             child: Text(
               'SL',
               style: TextStyle(
+                fontFamily: 'Roboto',
                 fontWeight: FontWeight.bold,
                 fontSize: 15,
               ),
@@ -244,6 +292,7 @@ class _InvoiceState extends State<Invoice> {
             child: Text(
               'Sản phẩm',
               style: TextStyle(
+                fontFamily: 'Roboto',
                 fontWeight: FontWeight.bold,
                 fontSize: 15,
               ),
@@ -254,6 +303,7 @@ class _InvoiceState extends State<Invoice> {
             child: Text(
               'Đơn giá',
               style: TextStyle(
+                fontFamily: 'Roboto',
                 fontWeight: FontWeight.bold,
                 fontSize: 15,
               ),
@@ -265,6 +315,7 @@ class _InvoiceState extends State<Invoice> {
             child: Text(
               'Thành tiền',
               style: TextStyle(
+                fontFamily: 'Roboto',
                 fontWeight: FontWeight.bold,
                 fontSize: 15,
               ),
@@ -304,7 +355,9 @@ class _InvoiceState extends State<Invoice> {
                 child: Text(
                   '${product.quantity}',
                   style: const TextStyle(
-                      fontSize: 15, fontWeight: FontWeight.w500),
+                      fontFamily: 'Roboto',
+                      fontSize: 15,
+                      fontWeight: FontWeight.w500),
                   textAlign: TextAlign.start,
                 ),
               ),
@@ -313,6 +366,7 @@ class _InvoiceState extends State<Invoice> {
                 child: Text(
                   productName,
                   style: const TextStyle(
+                    fontFamily: 'Roboto',
                     fontSize: 15,
                     fontWeight: FontWeight.w500,
                   ),
@@ -323,7 +377,9 @@ class _InvoiceState extends State<Invoice> {
                 child: Text(
                   _formatNumber(_calculateProductPrice(product)),
                   style: const TextStyle(
-                      fontSize: 15, fontWeight: FontWeight.w500),
+                      fontFamily: 'Roboto',
+                      fontSize: 15,
+                      fontWeight: FontWeight.w500),
                   textAlign: TextAlign.right,
                 ),
               ),
@@ -332,7 +388,9 @@ class _InvoiceState extends State<Invoice> {
                 child: Text(
                   _formatNumber(_calculateProductTotalPrice(product)),
                   style: const TextStyle(
-                      fontSize: 15, fontWeight: FontWeight.w500),
+                      fontFamily: 'Roboto',
+                      fontSize: 15,
+                      fontWeight: FontWeight.w500),
                   textAlign: TextAlign.right,
                 ),
               ),
@@ -363,14 +421,20 @@ class _InvoiceState extends State<Invoice> {
             flex: 4,
             child: Text(
               '+ ${attr.name}',
-              style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w500),
+              style: const TextStyle(
+                  fontFamily: 'Roboto',
+                  fontSize: 15,
+                  fontWeight: FontWeight.w500),
             ),
           ),
           Expanded(
             flex: 2,
             child: Text(
               _formatNumber(attr.price),
-              style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w500),
+              style: const TextStyle(
+                  fontFamily: 'Roboto',
+                  fontSize: 15,
+                  fontWeight: FontWeight.w500),
               textAlign: TextAlign.right,
             ),
           ),
@@ -378,7 +442,10 @@ class _InvoiceState extends State<Invoice> {
             flex: 2,
             child: Text(
               _formatNumber(attr.price * quantity),
-              style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w500),
+              style: const TextStyle(
+                  fontFamily: 'Roboto',
+                  fontSize: 15,
+                  fontWeight: FontWeight.w500),
               textAlign: TextAlign.right,
             ),
           ),
@@ -399,7 +466,10 @@ class _InvoiceState extends State<Invoice> {
             flex: 8,
             child: Text(
               '*Ghi chú: ${note}',
-              style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w500),
+              style: const TextStyle(
+                  fontFamily: 'Roboto',
+                  fontSize: 15,
+                  fontWeight: FontWeight.w500),
             ),
           ),
         ],
@@ -433,6 +503,7 @@ class _InvoiceState extends State<Invoice> {
           Text(
             label,
             style: TextStyle(
+              fontFamily: 'Roboto',
               fontWeight: bold ? FontWeight.bold : FontWeight.w500,
               fontSize: large ? 17 : 15,
             ),
@@ -440,6 +511,7 @@ class _InvoiceState extends State<Invoice> {
           Text(
             '${_formatNumber(amount)} d',
             style: TextStyle(
+              fontFamily: 'Roboto',
               fontWeight: bold ? FontWeight.bold : FontWeight.w500,
               fontSize: large ? 17 : 15,
             ),
@@ -480,11 +552,17 @@ class _InvoiceState extends State<Invoice> {
         children: [
           Text(
             label,
-            style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w500),
+            style: const TextStyle(
+                fontFamily: 'Roboto',
+                fontSize: 15,
+                fontWeight: FontWeight.w500),
           ),
           Text(
             value,
-            style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w500),
+            style: const TextStyle(
+                fontFamily: 'Roboto',
+                fontSize: 15,
+                fontWeight: FontWeight.w500),
             textAlign: TextAlign.right,
           ),
         ],
@@ -499,7 +577,8 @@ class _InvoiceState extends State<Invoice> {
         const SizedBox(height: 8),
         const Text(
           "Mã QR thanh toán",
-          style: TextStyle(fontSize: 15, fontWeight: FontWeight.w500),
+          style: TextStyle(
+              fontFamily: 'Roboto', fontSize: 15, fontWeight: FontWeight.w500),
         ),
         Container(
             width: 120, // Increased size for better visibility
@@ -518,33 +597,41 @@ class _InvoiceState extends State<Invoice> {
         const SizedBox(height: 8),
         const Text(
           'Tra cứu hóa đơn điện tử tại',
-          style: TextStyle(fontSize: 15, fontWeight: FontWeight.w500),
+          style: TextStyle(
+              fontFamily: 'Roboto', fontSize: 15, fontWeight: FontWeight.w500),
           textAlign: TextAlign.center,
         ),
         const Text(
           'https://tracuuhddt.zamiapp.vn',
-          style: TextStyle(fontSize: 15, fontWeight: FontWeight.w500),
+          style: TextStyle(
+              fontFamily: 'Roboto', fontSize: 15, fontWeight: FontWeight.w500),
           textAlign: TextAlign.center,
         ),
         Text(
           'Mã tra cứu: ${widget.receiptData.order.code}',
-          style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w500),
+          style: const TextStyle(
+              fontFamily: 'Roboto', fontSize: 15, fontWeight: FontWeight.w500),
           textAlign: TextAlign.center,
         ),
         const Text(
           'Cảm ơn quý khách đã mua hàng!',
-          style: TextStyle(fontSize: 15, fontWeight: FontWeight.w500),
+          style: TextStyle(
+              fontFamily: 'Roboto', fontSize: 15, fontWeight: FontWeight.w500),
           textAlign: TextAlign.center,
         ),
         if (widget.receiptData.phone != null)
           Text(
             'Hotline: ${widget.receiptData.phone}',
-            style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w500),
+            style: const TextStyle(
+                fontFamily: 'Roboto',
+                fontSize: 15,
+                fontWeight: FontWeight.w500),
             textAlign: TextAlign.center,
           ),
         const Text(
           'Powered by Zami Solution',
-          style: TextStyle(fontSize: 15, fontWeight: FontWeight.w500),
+          style: TextStyle(
+              fontFamily: 'Roboto', fontSize: 15, fontWeight: FontWeight.w500),
           textAlign: TextAlign.center,
         ),
       ],

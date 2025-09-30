@@ -9,6 +9,7 @@ import 'package:esc_pos_utils/esc_pos_utils.dart';
 import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
+import 'package:flutter/scheduler.dart';
 
 import 'package:image/image.dart' as img;
 
@@ -395,7 +396,7 @@ class PrintService {
   }) async {
     try {
       if (_printer == null) return PosPrintResult.timeout;
-      await Future.delayed(const Duration(milliseconds: 120));
+      await Future.delayed(const Duration(milliseconds: 60));
 
       // Reset và đảm bảo trạng thái máy in sạch
       _printer!.reset();
@@ -405,50 +406,57 @@ class PrintService {
           (_printer!.paperSize == PaperSize.mm58) ? 384 : 576;
       print('Paper size: ${_printer!.paperSize}, Max width: $paperMaxWidth');
 
-      // // Tối ưu hóa ảnh để in sắc nét và crop khoảng trống thừa
-      final enhanced = enhanceImageForPrinting(decodedImage);
+      // // // Tối ưu hóa ảnh để in sắc nét và crop khoảng trống thừa
+      // final enhanced = enhanceImageForPrinting(decodedImage);
 
-      // Resize để vừa khổ giấy
-      final resized = resizeToPaper(enhanced, maxWidth: paperMaxWidth);
+      // // Resize để vừa khổ giấy
+      // final resized = resizeToPaper(enhanced, maxWidth: paperMaxWidth);
 
-      print(
-          'Enhanced and resized to: ${resized.width}x${resized.height} (sharp & cropped)');
+      // print(
+      //     'Enhanced and resized to: ${resized.width}x${resized.height} (sharp & cropped)');
 
       // Nếu ảnh quá cao, chia nhỏ theo từng dải để tránh tràn bộ đệm
-      const int maxChunkHeight = 4000; // điều chỉnh nếu cần theo máy in
-      if (resized.height > maxChunkHeight) {
-        int offset = 0;
-        while (offset < resized.height) {
-          final int chunkHeight = (offset + maxChunkHeight <= resized.height)
-              ? maxChunkHeight
-              : (resized.height - offset);
-          final img.Image slice = img.copyCrop(
-            resized,
-            0,
-            offset,
-            resized.width,
-            chunkHeight,
-          );
-          _printer!.imageRaster(
-            slice,
-            align: align,
-            highDensityHorizontal: highDensityHorizontal,
-            highDensityVertical: highDensityVertical,
-            imageFn: imageFn,
-          );
-          // Feed một chút giữa các dải để tránh dính liền
-          _printer!.feed(1);
-          offset += chunkHeight;
-        }
-      } else {
-        _printer!.imageRaster(
-          resized, // Sử dụng ảnh đã được resize thay vì ảnh gốc
-          align: align,
-          highDensityHorizontal: highDensityHorizontal,
-          highDensityVertical: highDensityVertical,
-          imageFn: imageFn,
-        );
-      }
+      // const int maxChunkHeight = 4000; // điều chỉnh nếu cần theo máy in
+      // if (resized.height > maxChunkHeight) {
+      //   int offset = 0;
+      //   while (offset < resized.height) {
+      //     final int chunkHeight = (offset + maxChunkHeight <= resized.height)
+      //         ? maxChunkHeight
+      //         : (resized.height - offset);
+      //     final img.Image slice = img.copyCrop(
+      //       resized,
+      //       0,
+      //       offset,
+      //       resized.width,
+      //       chunkHeight,
+      //     );
+      //     _printer!.imageRaster(
+      //       slice,
+      //       align: align,
+      //       highDensityHorizontal: highDensityHorizontal,
+      //       highDensityVertical: highDensityVertical,
+      //       imageFn: imageFn,
+      //     );
+      //     // Feed một chút giữa các dải để tránh dính liền
+      //     _printer!.feed(1);
+      //     offset += chunkHeight;
+      //   }
+      // } else {
+      //   _printer!.imageRaster(
+      //     resized, // Sử dụng ảnh đã được resize thay vì ảnh gốc
+      //     align: align,
+      //     highDensityHorizontal: highDensityHorizontal,
+      //     highDensityVertical: highDensityVertical,
+      //     imageFn: imageFn,
+      //   );
+      // }
+      _printer!.imageRaster(
+        decodedImage,
+        align: align,
+        highDensityHorizontal: highDensityHorizontal,
+        highDensityVertical: highDensityVertical,
+        imageFn: imageFn,
+      );
 
       // Cho máy xử lý buffer, sau đó feed và cắt giấy
       await Future.delayed(const Duration(milliseconds: 120));
@@ -1162,14 +1170,25 @@ class PrintService {
     }
   }
 
+  Future<img.Image?> _fromUiImageRaw(ui.Image uiImage) async {
+    final byteData =
+        await uiImage.toByteData(format: ui.ImageByteFormat.rawRgba);
+    if (byteData == null) return null;
+    return img.Image.fromBytes(
+      uiImage.width,
+      uiImage.height,
+      byteData.buffer.asUint8List(),
+      format: img.Format.rgba,
+    );
+  }
+
   /// Hàm capture widget hoàn toàn không giới hạn chiều cao - KHÔNG hiển thị lên màn hình
   Future<img.Image?> captureFullContentWidget(
       Widget widget, BuildContext context,
-      {double pixelRatio = 3.0, int paperMaxWidth = 576}) async {
+      {double pixelRatio = 1.5, int paperMaxWidth = 576}) async {
     try {
       final GlobalKey repaintBoundaryKey = GlobalKey();
 
-      // Tạo widget wrapper hoàn toàn không giới hạn chiều cao
       final wrappedWidget = RepaintBoundary(
         key: repaintBoundaryKey,
         child: Material(
@@ -1178,7 +1197,6 @@ class PrintService {
             constraints: BoxConstraints(
               maxWidth: paperMaxWidth.toDouble(),
               minWidth: paperMaxWidth.toDouble(),
-              // Không giới hạn chiều cao - để widget tự điều chỉnh
               maxHeight: double.infinity,
               minHeight: 0,
             ),
@@ -1195,14 +1213,10 @@ class PrintService {
         builder: (context) => Material(
           color: Colors.transparent,
           child: Transform.translate(
-            offset:
-                Offset(-10000, -10000), // Di chuyển ra ngoài màn hình cả X và Y
-            child: Container(
+            offset: const Offset(-10000, -10000),
+            child: SizedBox(
               width: paperMaxWidth.toDouble(),
-              height: double.infinity,
-              child: SingleChildScrollView(
-                child: wrappedWidget,
-              ),
+              child: SingleChildScrollView(child: wrappedWidget),
             ),
           ),
         ),
@@ -1211,62 +1225,28 @@ class PrintService {
       Overlay.of(context).insert(overlayEntry);
 
       try {
-        // Chờ widget render hoàn toàn - tăng thời gian chờ để đảm bảo render đầy đủ
-        await Future.delayed(const Duration(milliseconds: 500));
+        await Future.delayed(const Duration(milliseconds: 120));
+        await SchedulerBinding.instance.endOfFrame;
 
-        final RenderRepaintBoundary? boundary =
-            repaintBoundaryKey.currentContext?.findRenderObject()
-                as RenderRepaintBoundary?;
+        final boundary = repaintBoundaryKey.currentContext?.findRenderObject()
+            as RenderRepaintBoundary?;
+        if (boundary == null) return null;
 
-        if (boundary == null) {
-          print('Không thể tìm thấy RenderRepaintBoundary');
-          return null;
+        final uiImage = await boundary.toImage(pixelRatio: pixelRatio);
+        final capturedImage = await _fromUiImageRaw(uiImage);
+        if (capturedImage == null) return null;
+
+        final cropped = cropVerticalWhitespace(capturedImage);
+        final processed = threshold(cropped, level: 150);
+
+        if (processed.width != paperMaxWidth) {
+          return img.copyResize(
+            processed,
+            width: paperMaxWidth,
+            interpolation: img.Interpolation.linear,
+          );
         }
-
-        // Kiểm tra kích thước thực tế của widget trước khi capture
-        final RenderBox? renderBox = boundary as RenderBox?;
-        if (renderBox != null) {
-          print(
-              'Widget actual size: ${renderBox.size.width}x${renderBox.size.height}');
-        }
-
-        // Capture với pixel ratio cao
-        final ui.Image image = await boundary.toImage(pixelRatio: pixelRatio);
-        final ByteData? byteData =
-            await image.toByteData(format: ui.ImageByteFormat.png);
-
-        if (byteData == null) {
-          print('Không thể convert image thành byte data');
-          return null;
-        }
-
-        final capturedImage = img.decodeImage(byteData.buffer.asUint8List());
-
-        if (capturedImage != null) {
-          print(
-              'Captured FULL content image size: ${capturedImage.width}x${capturedImage.height}');
-
-          // Chỉ crop khoảng trắng trên/dưới, giữ nguyên chiều cao
-          final enhanced = cropVerticalWhitespace(capturedImage);
-          final grayscale = img.grayscale(enhanced);
-          final processed = threshold(grayscale, level: 140);
-
-          print(
-              'Processed FULL content image size: ${processed.width}x${processed.height}');
-
-          // Đảm bảo width đúng kích thước giấy
-          if (processed.width != paperMaxWidth) {
-            return img.copyResize(
-              processed,
-              width: paperMaxWidth,
-              interpolation: img.Interpolation.cubic,
-            );
-          }
-
-          return processed;
-        }
-
-        return null;
+        return processed;
       } finally {
         overlayEntry.remove();
       }
@@ -1287,7 +1267,7 @@ class PrintService {
       final image = await captureFullContentWidget(
         widget,
         context,
-        pixelRatio: 3.0, // Tăng pixel ratio để chất lượng tốt hơn
+        pixelRatio: 6.0, // Tăng pixel ratio để chất lượng tốt hơn
         paperMaxWidth: 576,
       );
 
@@ -1421,13 +1401,21 @@ class PrintService {
       print('Bắt đầu in Invoice với đảm bảo không mất nội dung...');
 
       // Tạo Invoice widget với forPrint: true để tối ưu cho in ấn
+      await precacheImage(const AssetImage('assets/images/image.png'), context);
       final invoiceWidget = Invoice(
         receiptData: receiptData,
         forPrint: true,
       );
 
       // In widget với nội dung dài
-      await printLongContentWidget(invoiceWidget, context);
+      // await printLongContentWidget(invoiceWidget, context);
+      // showDialog(
+      //   context: context,
+      //   builder: (_) => Dialog(
+      //     insetPadding: EdgeInsets.zero,
+      //     child: invoiceWidget, // OK
+      //   ),
+      // );
 
       print('In Invoice thành công!');
     } catch (e) {
