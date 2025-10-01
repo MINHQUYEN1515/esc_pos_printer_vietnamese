@@ -7,7 +7,6 @@ import 'package:qr_flutter/qr_flutter.dart';
 
 import 'dart:ui' as ui;
 import 'label_print_service.dart';
-import 'label_widget.dart';
 import 'print_service.dart';
 import 'usb_service.dart';
 import 'package:image/image.dart' as img;
@@ -30,7 +29,7 @@ final receipt = ReceiptData(
       address: "123 Lê Lợi, Quận 1, TP.HCM",
     ),
     table: TableData(
-      name: "Bàn số 1",
+      name: "Số 1",
     ),
     waitingCard: "WC-01",
     createdAt: DateTime.parse("2025-09-20 08:55:00"),
@@ -45,14 +44,15 @@ final receipt = ReceiptData(
     ),
     products: [
       ProductData(
-        name: "Bánh mì thịt nướng",
+        name: "Cà phê sữa đá size L",
         quantity: 1,
-        price: 30000,
+        price: 20000,
         attributes: [
-          AttributeData(name: "Thêm pate", price: 5000),
-          AttributeData(name: "Không ớt", price: 0),
+          AttributeData(name: "Thêm sữa", price: 5000),
+          AttributeData(name: "Ít đá", price: 0),
+          AttributeData(name: "Không đường", price: 0),
         ],
-        note: "Mang về",
+        note: "Uống tại chỗ",
       ),
     ],
     totalMoney: 170000,
@@ -92,7 +92,7 @@ class MyApp extends StatelessWidget {
           ),
         ),
       ),
-      home: ReceiptExample(),
+      home: PrinterDemoPage(),
     );
   }
 }
@@ -108,7 +108,9 @@ class _PrinterDemoPageState extends State<PrinterDemoPage> {
   final PrintService _service = PrintService();
   final UsbService _usbService = UsbService();
   final TextEditingController _lanIpController =
-      TextEditingController(text: '192.168.10.50');
+      TextEditingController(text: '192.168.10.48');
+  // final TextEditingController _lanIpController =
+  //     TextEditingController(text: '172.16.0.100');
 
   String _status = '';
   final NumberFormat money =
@@ -116,13 +118,34 @@ class _PrinterDemoPageState extends State<PrinterDemoPage> {
   final GlobalKey previewContainerKey = GlobalKey();
   final GlobalKey labelPreviewKey = GlobalKey();
 
+  @override
+  void initState() {
+    super.initState();
+    // Tạo timer để cập nhật UI khi trạng thái kết nối thay đổi
+    _startConnectionStatusTimer();
+  }
+
+  void _startConnectionStatusTimer() {
+    // Cập nhật UI mỗi giây để hiển thị trạng thái kết nối
+    Future.doWhile(() async {
+      await Future.delayed(const Duration(seconds: 1));
+      if (mounted) {
+        setState(() {
+          // Trigger rebuild để cập nhật trạng thái kết nối
+        });
+        return true;
+      }
+      return false;
+    });
+  }
+
   Future<void> _connectLan() async {
     final ip = _lanIpController.text.trim();
     if (ip.isEmpty) {
       setState(() => _status = 'Vui lòng nhập IP LAN');
       return;
     }
-    await _service.chooseLanAndLoadProfile(ip: ip);
+    await _service.connect(ip: ip);
     final err = await _service.connect(ip: ip);
     setState(() => _status =
         err == null ? 'LAN: kết nối thành công $ip' : 'LAN: lỗi kết nối: $err');
@@ -167,108 +190,12 @@ class _PrinterDemoPageState extends State<PrinterDemoPage> {
     setState(() => _status = 'Kết quả in: ${result.msg}');
   }
 
-  Future<void> _connectUsb() async {
-    setState(() => _status = 'Đang tìm máy in USB...');
-    final devices = await _usbService.getDeviceList();
-    if (devices.isEmpty) {
-      setState(() => _status = 'Không tìm thấy thiết bị USB');
-      return;
-    }
-
-    Map<String, dynamic> pick = devices.first;
-    int? parseId(dynamic v) {
-      if (v == null) return null;
-      if (v is int) return v;
-      if (v is String) {
-        final s = v.toLowerCase().replaceAll('0x', '');
-        return int.tryParse(s, radix: 16) ?? int.tryParse(v);
-      }
-      return null;
-    }
-
-    final vendorId = parseId(pick['vendorId']);
-    final productId = parseId(pick['productId']);
-    if (vendorId == null || productId == null) {
-      setState(() => _status = 'Thiếu vendorId/productId từ thiết bị USB');
-      return;
-    }
-
-    final ok =
-        await _usbService.connect(vendorId: vendorId, productId: productId);
-    if (!ok) {
-      setState(() => _status = 'Kết nối USB thất bại');
-      return;
-    }
-
-    await _service.chooseUsbAndLoadProfile(
-        vendorId: vendorId, productId: productId);
-    await _service.connectUsb(sender: (bytes) async {
-      await _usbService.write(bytes);
-    });
-
-    setState(() => _status = 'USB: kết nối thành công ($vendorId:$productId)');
-  }
-
   showImage(Uint8List pngBytes) {
     showDialog(
       context: context,
       builder: (context) =>
           SizedBox(height: 200, width: 200, child: Image.memory(pngBytes)),
     );
-  }
-
-  Future<void> _printTestUsb() async {
-    final result = await _service.printReceiptRaw(
-      storeName: 'Cửa hàng Demo',
-      invoiceNo: 'USB-TEST-001',
-      items: const [
-        ReceiptItem(name: 'SP USB', quantity: 1, totalPrice: 10000),
-      ],
-      total: 10000,
-      footerText: 'Cảm ơn!',
-    );
-    setState(() =>
-        _status = 'Kết quả in USB: ${result.msg} (cần plugin để gửi bytes)');
-  }
-
-  Future<void> _printLabelXPrinter() async {
-    final ip = _lanIpController.text.trim();
-    if (ip.isEmpty) {
-      setState(() => _status = 'Vui lòng nhập IP LAN');
-      return;
-    }
-
-    final boundary = labelPreviewKey.currentContext?.findRenderObject()
-        as RenderRepaintBoundary?;
-    if (boundary == null) {
-      setState(() => _status = 'Không tìm thấy vùng xem trước nhãn');
-      return;
-    }
-
-    const double pixelRatio = 2.0;
-    await Future.delayed(const Duration(milliseconds: 120));
-    final ui.Image renderedImage =
-        await boundary.toImage(pixelRatio: pixelRatio);
-    final ByteData? pngBytes =
-        await renderedImage.toByteData(format: ui.ImageByteFormat.png);
-    if (pngBytes == null) {
-      setState(() => _status = 'Lỗi chuyển đổi ảnh nhãn');
-      return;
-    }
-
-    setState(() => _status = 'Đang gửi nhãn tới máy in...');
-    try {
-      await _service.printImageTSPLFromBytes(
-        imageData: pngBytes.buffer.asUint8List(),
-        printerIp: ip,
-        x: 20,
-        y: 20,
-        maxWidthPx: 576,
-      );
-      setState(() => _status = 'In tem thành công');
-    } catch (e) {
-      setState(() => _status = 'Lỗi in tem: $e');
-    }
   }
 
   @override
@@ -356,34 +283,194 @@ class _PrinterDemoPageState extends State<PrinterDemoPage> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Row(
-                        children: const [
-                          Icon(Icons.local_offer_outlined),
-                          SizedBox(width: 8),
-                          Text(
+                        children: [
+                          const Icon(Icons.local_offer_outlined),
+                          const SizedBox(width: 8),
+                          const Text(
                             'In tem (XPrinter)',
                             style: TextStyle(fontWeight: FontWeight.bold),
+                          ),
+                          const Spacer(),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 8, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: LabelPrintService.isConnected
+                                  ? Colors.green.withOpacity(0.1)
+                                  : Colors.red.withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(
+                                color: LabelPrintService.isConnected
+                                    ? Colors.green
+                                    : Colors.red,
+                                width: 1,
+                              ),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  LabelPrintService.isConnected
+                                      ? Icons.check_circle
+                                      : Icons.cancel,
+                                  size: 12,
+                                  color: LabelPrintService.isConnected
+                                      ? Colors.green
+                                      : Colors.red,
+                                ),
+                                const SizedBox(width: 4),
+                                Text(
+                                  LabelPrintService.isConnected
+                                      ? 'Đã kết nối'
+                                      : 'Chưa kết nối',
+                                  style: TextStyle(
+                                    fontSize: 10,
+                                    color: LabelPrintService.isConnected
+                                        ? Colors.green
+                                        : Colors.red,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
                         ],
                       ),
                       const SizedBox(height: 12),
-                      // LabelWidget(
-                      //   title: "In test",
-                      //   content: "Hi bạn\n Tớ là Minh Quyên",
-                      // ),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: ElevatedButton.icon(
+                              onPressed: () async {
+                                final ip = _lanIpController.text.trim();
+                                if (ip.isEmpty) {
+                                  setState(
+                                      () => _status = 'Vui lòng nhập IP LAN');
+                                  return;
+                                }
+                                setState(() => _status = 'Đang kết nối...');
+
+                                final success = await LabelPrintService.connect(
+                                    printerIp: ip);
+
+                                if (success) {
+                                  setState(() => _status =
+                                      'Kết nối máy in tem thành công: $ip');
+                                } else {
+                                  setState(() =>
+                                      _status = 'Lỗi kết nối máy in tem: $ip');
+                                }
+                              },
+                              icon: const Icon(Icons.link),
+                              label: const Text('Kết nối máy in tem'),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: ElevatedButton.icon(
+                              onPressed: () async {
+                                final ip = _lanIpController.text.trim();
+                                if (ip.isEmpty) {
+                                  setState(
+                                      () => _status = 'Vui lòng nhập IP LAN');
+                                  return;
+                                }
+
+                                if (!LabelPrintService.isConnected) {
+                                  setState(() =>
+                                      _status = 'Chưa kết nối máy in tem');
+                                  return;
+                                }
+
+                                setState(() => _status = 'Đang in tem...');
+
+                                try {
+                                  await LabelPrintService.printLabel(
+                                    title: "In test",
+                                    content:
+                                        "Hi bạn Tớ là Minh Quyền\nTôi đang làm dev",
+                                    printerIp: ip,
+                                    context: context,
+                                    saveDebugImage: true, // Enable debug image
+                                  );
+                                  setState(
+                                      () => _status = 'In tem thành công!');
+                                } catch (e) {
+                                  setState(() => _status = 'Lỗi in tem: $e');
+                                }
+                              },
+                              icon: const Icon(Icons.print),
+                              label: const Text('In tem'),
+                            ),
+                          ),
+                        ],
+                      ),
                       const SizedBox(height: 12),
-                      Align(
-                        alignment: Alignment.centerLeft,
-                        child: ElevatedButton.icon(
-                          onPressed: () {
-                            LabelPrintService.printLabelWidgetWithContext(
-                                title: "In test",
-                                content: "Hi bạn\n Tớ là Minh Quyên",
-                                printerIp: _lanIpController.text,
-                                context: context);
-                          },
-                          icon: const Icon(Icons.print),
-                          label: const Text('In tem'),
-                        ),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: ElevatedButton.icon(
+                              onPressed: () async {
+                                final ip = _lanIpController.text.trim();
+                                if (ip.isEmpty) {
+                                  setState(
+                                      () => _status = 'Vui lòng nhập IP LAN');
+                                  return;
+                                }
+
+                                setState(
+                                    () => _status = 'Đang kết nối và in...');
+
+                                try {
+                                  // Kết nối trước
+                                  final connected =
+                                      await LabelPrintService.connect(
+                                          printerIp: ip);
+
+                                  if (!connected) {
+                                    setState(() =>
+                                        _status = 'Lỗi kết nối máy in tem');
+                                    return;
+                                  }
+
+                                  // In ngay sau khi kết nối
+                                  await LabelPrintService.printLabel(
+                                    title: "In test",
+                                    content: "Hi bạn\n Tớ là Minh Quyên",
+                                    printerIp: ip,
+                                    context: context,
+                                    saveDebugImage: true, // Enable debug image
+                                  );
+
+                                  setState(() => _status =
+                                      'Kết nối và in tem thành công!');
+                                } catch (e) {
+                                  setState(
+                                      () => _status = 'Lỗi kết nối/in tem: $e');
+                                }
+                              },
+                              icon: const Icon(Icons.print),
+                              label: const Text('Kết nối & In tem'),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: ElevatedButton.icon(
+                              onPressed: () async {
+                                try {
+                                  await LabelPrintService.disconnect();
+                                  setState(() =>
+                                      _status = 'Đã ngắt kết nối máy in tem');
+                                } catch (e) {
+                                  setState(
+                                      () => _status = 'Lỗi ngắt kết nối: $e');
+                                }
+                              },
+                              icon: const Icon(Icons.link_off),
+                              label: const Text('Ngắt kết nối'),
+                            ),
+                          ),
+                        ],
                       ),
                     ],
                   ),
@@ -413,7 +500,7 @@ class _PrinterDemoPageState extends State<PrinterDemoPage> {
                         children: [
                           Expanded(
                             child: ElevatedButton.icon(
-                              onPressed: _connectUsb,
+                              onPressed: () {},
                               icon: const Icon(Icons.cable_outlined),
                               label: const Text('Kết nối USB'),
                             ),

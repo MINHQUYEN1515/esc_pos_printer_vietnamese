@@ -28,20 +28,25 @@ class LabelWidget extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(title,
-              style:
-                  const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+              style: const TextStyle(
+                  fontSize: 25, // tăng kích cỡ tiêu đề
+                  fontWeight: FontWeight.w700)),
           const Divider(thickness: 1),
-          Text(content, style: const TextStyle(fontSize: 16)),
+          Text(content,
+              style:
+                  const TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
           if (additionalInfo != null) ...[
             const SizedBox(height: 8),
             ...additionalInfo!.split('\n').map(
-                  (line) =>
-                      Text("• $line", style: const TextStyle(fontSize: 14)),
+                  (line) => Text("• $line",
+                      style: const TextStyle(
+                        fontSize: 16,
+                      )),
                 ),
           ],
           const Spacer(),
           const Divider(thickness: 1),
-          Text(formattedDate, style: const TextStyle(fontSize: 12)),
+          Text(formattedDate, style: const TextStyle(fontSize: 14)),
         ],
       ),
     );

@@ -46,11 +46,17 @@ class _InvoiceState extends State<Invoice> {
         Align(alignment: Alignment.center, child: _buildOrderInfo()),
         _buildDateTimeInfo(),
         if (widget.receiptData.order.creator != null) _buildStaffInfo(),
-        if (widget.receiptData.order.client != null) _buildCustomerInfo(),
-        _buildDivider(),
+        // if (widget.receiptData.order.client != null) _buildCustomerInfo(),
+        // _buildDivider(),
+        const SizedBox(
+          height: 5,
+        ),
         _buildProductHeader(),
         _buildProductList(),
-        _buildDivider(),
+        const SizedBox(
+          height: 5,
+        ),
+        // _buildDivider(),
         _buildTotals(),
         _buildPaymentInfo(),
         if (widget.receiptData.order.qrBank != null)
@@ -93,11 +99,11 @@ class _InvoiceState extends State<Invoice> {
 
         Text(
           widget.receiptData.isProvisional
-              ? ' HÓA ĐƠN TẠM TÍNH'
+              ? 'HÓA ĐƠN TẠM TÍNH'
               : 'HÓA ĐƠN THANH TOÁN',
           style: const TextStyle(
             fontFamily: 'Roboto',
-            fontSize: 20,
+            fontSize: 18,
             fontWeight: FontWeight.bold,
           ),
           textAlign: TextAlign.center,
@@ -107,8 +113,8 @@ class _InvoiceState extends State<Invoice> {
             '(In lại)',
             style: TextStyle(
                 fontFamily: 'Roboto',
-                fontSize: 20,
-                fontWeight: FontWeight.w500),
+                fontSize: 18,
+                fontWeight: FontWeight.w600),
             textAlign: TextAlign.center,
           ),
       ],
@@ -123,20 +129,20 @@ class _InvoiceState extends State<Invoice> {
           'Zami Solution FNB',
           style: const TextStyle(
             fontFamily: 'Roboto',
-            fontSize: 17,
+            fontSize: 22,
             fontWeight: FontWeight.w600,
           ),
           textAlign: TextAlign.center,
         ),
-        if (widget.receiptData.order.branch?.address != null)
-          Text(
-            widget.receiptData.order.branch!.address!,
-            style: const TextStyle(
-                fontFamily: 'Roboto',
-                fontSize: 17,
-                fontWeight: FontWeight.w500),
-            textAlign: TextAlign.center,
-          ),
+        // if (widget.receiptData.order.branch?.address != null)
+        //   Text(
+        //     widget.receiptData.order.branch!.address!,
+        //     style: const TextStyle(
+        //         fontFamily: 'Roboto',
+        //         fontSize: 17,
+        //         fontWeight: FontWeight.w600),
+        //     textAlign: TextAlign.center,
+        //   ),
       ],
     );
   }
@@ -146,6 +152,9 @@ class _InvoiceState extends State<Invoice> {
       mainAxisSize: MainAxisSize.min,
       children: [
         _buildDivider(),
+        const SizedBox(
+          height: 10,
+        ),
         const Text(
           'WIFI MIỄN PHÍ',
           style: TextStyle(
@@ -158,14 +167,17 @@ class _InvoiceState extends State<Invoice> {
         Text(
           'Tên: ${widget.receiptData.wifiInfo!['name']!}',
           style: const TextStyle(
-              fontFamily: 'Roboto', fontSize: 17, fontWeight: FontWeight.w500),
+              fontFamily: 'Roboto', fontSize: 17, fontWeight: FontWeight.w600),
           textAlign: TextAlign.center,
         ),
         Text(
           'Mật khẩu: ${widget.receiptData.wifiInfo!['password']!}',
           style: const TextStyle(
-              fontFamily: 'Roboto', fontSize: 17, fontWeight: FontWeight.w500),
+              fontFamily: 'Roboto', fontSize: 17, fontWeight: FontWeight.w600),
           textAlign: TextAlign.center,
+        ),
+        const SizedBox(
+          height: 10,
         ),
         _buildDivider(),
       ],
@@ -180,7 +192,7 @@ class _InvoiceState extends State<Invoice> {
         Text(
           'Mã đơn: ${widget.receiptData.order.code}',
           style: const TextStyle(
-              fontFamily: 'Roboto', fontSize: 15, fontWeight: FontWeight.w500),
+              fontFamily: 'Roboto', fontSize: 15, fontWeight: FontWeight.bold),
         ),
         if (widget.receiptData.order.table != null)
           Text(
@@ -188,7 +200,7 @@ class _InvoiceState extends State<Invoice> {
             style: const TextStyle(
                 fontFamily: 'Roboto',
                 fontSize: 15,
-                fontWeight: FontWeight.w500),
+                fontWeight: FontWeight.w600),
           ),
         if (widget.receiptData.order.waitingCard != null)
           Text(
@@ -196,7 +208,7 @@ class _InvoiceState extends State<Invoice> {
             style: const TextStyle(
                 fontFamily: 'Roboto',
                 fontSize: 15,
-                fontWeight: FontWeight.w500),
+                fontWeight: FontWeight.w600),
           ),
         _buildDivider(),
       ],
@@ -215,12 +227,12 @@ class _InvoiceState extends State<Invoice> {
         Text(
           'Thời gian tạo: ${DateFormat('dd/MM/yyyy HH:mm').format(orderTimeGMT7)}',
           style: const TextStyle(
-              fontFamily: 'Roboto', fontSize: 15, fontWeight: FontWeight.w500),
+              fontFamily: 'Roboto', fontSize: 15, fontWeight: FontWeight.w600),
         ),
         Text(
           'Thời gian in: ${DateFormat('dd/MM/yyyy HH:mm').format(currentTimeGMT7)}',
           style: const TextStyle(
-              fontFamily: 'Roboto', fontSize: 15, fontWeight: FontWeight.w500),
+              fontFamily: 'Roboto', fontSize: 15, fontWeight: FontWeight.w600),
         ),
       ],
     );
@@ -251,12 +263,12 @@ class _InvoiceState extends State<Invoice> {
         Text(
           'Khách hàng: ${widget.receiptData.order.client!.name!}',
           style: const TextStyle(
-              fontFamily: 'Roboto', fontSize: 15, fontWeight: FontWeight.w500),
+              fontFamily: 'Roboto', fontSize: 15, fontWeight: FontWeight.w600),
         ),
         Text(
           'SDT: ${widget.receiptData.order.client!.phone}',
           style: const TextStyle(
-              fontFamily: 'Roboto', fontSize: 15, fontWeight: FontWeight.w500),
+              fontFamily: 'Roboto', fontSize: 15, fontWeight: FontWeight.w600),
         ),
         if (widget.receiptData.order.orderType == 'SHIPPING' &&
             widget.receiptData.order.shipping?.address != null)
@@ -265,18 +277,26 @@ class _InvoiceState extends State<Invoice> {
             style: const TextStyle(
                 fontFamily: 'Roboto',
                 fontSize: 15,
-                fontWeight: FontWeight.w500),
+                fontWeight: FontWeight.w600),
           ),
       ],
     );
   }
 
   Widget _buildProductHeader() {
-    return Container(
-      // padding: const EdgeInsets.symmetric(horizontal: 16),
-      child: const Row(
-        children: [
-          Expanded(
+    return Table(
+      border: TableBorder.all(color: Colors.black, width: 2),
+      columnWidths: const <int, TableColumnWidth>{
+        0: FlexColumnWidth(1),
+        1: FlexColumnWidth(4),
+        2: FlexColumnWidth(2),
+        3: FlexColumnWidth(2),
+      },
+      defaultVerticalAlignment: TableCellVerticalAlignment.middle,
+      children: const [
+        TableRow(children: [
+          Padding(
+            padding: EdgeInsets.symmetric(vertical: 6),
             child: Text(
               'SL',
               style: TextStyle(
@@ -284,11 +304,11 @@ class _InvoiceState extends State<Invoice> {
                 fontWeight: FontWeight.bold,
                 fontSize: 15,
               ),
-              textAlign: TextAlign.start,
+              textAlign: TextAlign.center,
             ),
           ),
-          Expanded(
-            flex: 4,
+          Padding(
+            padding: EdgeInsets.symmetric(vertical: 6),
             child: Text(
               'Sản phẩm',
               style: TextStyle(
@@ -296,10 +316,11 @@ class _InvoiceState extends State<Invoice> {
                 fontWeight: FontWeight.bold,
                 fontSize: 15,
               ),
+              textAlign: TextAlign.center,
             ),
           ),
-          Expanded(
-            flex: 2,
+          Padding(
+            padding: EdgeInsets.symmetric(vertical: 6),
             child: Text(
               'Đơn giá',
               style: TextStyle(
@@ -307,11 +328,11 @@ class _InvoiceState extends State<Invoice> {
                 fontWeight: FontWeight.bold,
                 fontSize: 15,
               ),
-              textAlign: TextAlign.right,
+              textAlign: TextAlign.center,
             ),
           ),
-          Expanded(
-            flex: 2,
+          Padding(
+            padding: EdgeInsets.symmetric(vertical: 6),
             child: Text(
               'Thành tiền',
               style: TextStyle(
@@ -319,167 +340,177 @@ class _InvoiceState extends State<Invoice> {
                 fontWeight: FontWeight.bold,
                 fontSize: 15,
               ),
-              textAlign: TextAlign.right,
+              textAlign: TextAlign.center,
             ),
           ),
-        ],
-      ),
+        ])
+      ],
     );
   }
 
   Widget _buildProductList() {
-    return Padding(
-      padding: EdgeInsets.only(left: 5),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: widget.receiptData.order.products
-            .map((product) => _buildProductRow(product))
-            .toList(),
-      ),
-    );
-  }
+    final products = widget.receiptData.order.products;
 
-  Widget _buildProductRow(ProductData product) {
-    final productName = product.name;
+    final List<TableRow> rows = <TableRow>[];
 
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        // Main product row
-        Container(
-          // padding: const EdgeInsets.symmetric(vertical: 2),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(
-                child: Text(
-                  '${product.quantity}',
-                  style: const TextStyle(
-                      fontFamily: 'Roboto',
-                      fontSize: 15,
-                      fontWeight: FontWeight.w500),
-                  textAlign: TextAlign.start,
-                ),
-              ),
-              Expanded(
-                flex: 4,
-                child: Text(
-                  productName,
-                  style: const TextStyle(
+    for (final product in products) {
+      // Main product row
+      rows.add(
+        TableRow(
+          children: [
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 2),
+              child: Text(
+                '${product.quantity}',
+                style: const TextStyle(
                     fontFamily: 'Roboto',
                     fontSize: 15,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
+                    fontWeight: FontWeight.w600),
+                textAlign: TextAlign.center,
               ),
-              Expanded(
-                flex: 2,
+            ),
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 2),
+              child: Text(
+                product.name,
+                style: const TextStyle(
+                  fontFamily: 'Roboto',
+                  fontSize: 15,
+                  fontWeight: FontWeight.w600,
+                ),
+                // textAlign: TextAlign.center,
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.only(right: 3),
+              child: Text(
+                _formatNumber(_calculateProductPrice(product)),
+                style: const TextStyle(
+                    fontFamily: 'Roboto',
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600),
+                textAlign: TextAlign.right,
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.only(right: 3),
+              child: Text(
+                _formatNumber(_calculateProductTotalPrice(product)),
+                style: const TextStyle(
+                    fontFamily: 'Roboto',
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600),
+                textAlign: TextAlign.right,
+              ),
+            ),
+          ],
+        ),
+      );
+
+      // Attribute rows
+      for (final attr in product.attributes) {
+        rows.add(
+          TableRow(
+            children: [
+              const SizedBox.shrink(),
+              Padding(
+                padding: const EdgeInsets.only(right: 3),
                 child: Text(
-                  _formatNumber(_calculateProductPrice(product)),
+                  '+ ${attr.name}',
                   style: const TextStyle(
                       fontFamily: 'Roboto',
                       fontSize: 15,
-                      fontWeight: FontWeight.w500),
+                      fontWeight: FontWeight.w600),
+                  // textAlign: TextAlign.center,
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.only(right: 3),
+                child: Text(
+                  _formatNumber(attr.price),
+                  style: const TextStyle(
+                      fontFamily: 'Roboto',
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600),
                   textAlign: TextAlign.right,
                 ),
               ),
-              Expanded(
-                flex: 2,
+              Padding(
+                padding: const EdgeInsets.only(right: 3),
                 child: Text(
-                  _formatNumber(_calculateProductTotalPrice(product)),
+                  _formatNumber(attr.price * product.quantity),
                   style: const TextStyle(
                       fontFamily: 'Roboto',
                       fontSize: 15,
-                      fontWeight: FontWeight.w500),
+                      fontWeight: FontWeight.w600),
                   textAlign: TextAlign.right,
                 ),
               ),
             ],
           ),
+        );
+      }
+
+      // Note row
+      if (product.note != null && product.note!.isNotEmpty) {
+        rows.add(
+          TableRow(
+            children: [
+              const SizedBox.shrink(),
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 1),
+                child: Text(
+                  '*Ghi chú: ${product.note}',
+                  style: const TextStyle(
+                      fontFamily: 'Roboto',
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600),
+                  textAlign: TextAlign.left,
+                ),
+              ),
+              const SizedBox.shrink(),
+              const SizedBox.shrink(),
+            ],
+          ),
+        );
+      }
+
+      // Spacing row between products
+      rows.add(
+        const TableRow(
+          children: [
+            SizedBox(height: 10),
+            SizedBox(height: 10),
+            SizedBox(height: 10),
+            SizedBox(height: 10),
+          ],
         ),
+      );
+    }
 
-        ...product.attributes
-            .map((attr) => _buildAttributeRow(attr, product.quantity)),
-        // Product note
-        if (product.note != null && product.note!.isNotEmpty)
-          _buildProductNote(product.note!),
-        const SizedBox(
-          height: 10,
-        )
-      ],
-    );
-  }
-
-  Widget _buildAttributeRow(AttributeData attr, int quantity) {
-    return Container(
-      padding: const EdgeInsets.symmetric(vertical: 1),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Expanded(child: const SizedBox(width: 50)),
-          Expanded(
-            flex: 4,
-            child: Text(
-              '+ ${attr.name}',
-              style: const TextStyle(
-                  fontFamily: 'Roboto',
-                  fontSize: 15,
-                  fontWeight: FontWeight.w500),
-            ),
-          ),
-          Expanded(
-            flex: 2,
-            child: Text(
-              _formatNumber(attr.price),
-              style: const TextStyle(
-                  fontFamily: 'Roboto',
-                  fontSize: 15,
-                  fontWeight: FontWeight.w500),
-              textAlign: TextAlign.right,
-            ),
-          ),
-          Expanded(
-            flex: 2,
-            child: Text(
-              _formatNumber(attr.price * quantity),
-              style: const TextStyle(
-                  fontFamily: 'Roboto',
-                  fontSize: 15,
-                  fontWeight: FontWeight.w500),
-              textAlign: TextAlign.right,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildProductNote(String note) {
-    return Container(
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Expanded(
-            child: SizedBox(),
-          ),
-          Expanded(
-            flex: 8,
-            child: Text(
-              '*Ghi chú: ${note}',
-              style: const TextStyle(
-                  fontFamily: 'Roboto',
-                  fontSize: 15,
-                  fontWeight: FontWeight.w500),
-            ),
-          ),
-        ],
-      ),
+    return Table(
+      // Chỉ viền ngoài và đường ngang giữa các hàng; bỏ viền dọc giữa các cột
+      border: const TableBorder(
+          // top: BorderSide(color: Colors.black, width: 1),
+          bottom: BorderSide(color: Colors.black, width: 2),
+          left: BorderSide(color: Colors.black, width: 2),
+          right: BorderSide(color: Colors.black, width: 2),
+          // horizontalInside: BorderSide(color: Colors.black12, width: 1),
+          verticalInside: BorderSide(color: Colors.black, width: 1)),
+      columnWidths: const <int, TableColumnWidth>{
+        0: FlexColumnWidth(1),
+        1: FlexColumnWidth(4),
+        2: FlexColumnWidth(2),
+        3: FlexColumnWidth(2),
+      },
+      defaultVerticalAlignment: TableCellVerticalAlignment.middle,
+      children: rows,
     );
   }
 
   Widget _buildTotals() {
     return Padding(
-      padding: EdgeInsets.only(left: 5),
+      padding: const EdgeInsets.only(left: 5),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -504,7 +535,7 @@ class _InvoiceState extends State<Invoice> {
             label,
             style: TextStyle(
               fontFamily: 'Roboto',
-              fontWeight: bold ? FontWeight.bold : FontWeight.w500,
+              fontWeight: bold ? FontWeight.bold : FontWeight.w600,
               fontSize: large ? 17 : 15,
             ),
           ),
@@ -512,7 +543,7 @@ class _InvoiceState extends State<Invoice> {
             '${_formatNumber(amount)} d',
             style: TextStyle(
               fontFamily: 'Roboto',
-              fontWeight: bold ? FontWeight.bold : FontWeight.w500,
+              fontWeight: bold ? FontWeight.bold : FontWeight.w600,
               fontSize: large ? 17 : 15,
             ),
           ),
@@ -555,14 +586,14 @@ class _InvoiceState extends State<Invoice> {
             style: const TextStyle(
                 fontFamily: 'Roboto',
                 fontSize: 15,
-                fontWeight: FontWeight.w500),
+                fontWeight: FontWeight.w600),
           ),
           Text(
             value,
             style: const TextStyle(
                 fontFamily: 'Roboto',
                 fontSize: 15,
-                fontWeight: FontWeight.w500),
+                fontWeight: FontWeight.w600),
             textAlign: TextAlign.right,
           ),
         ],
@@ -578,7 +609,7 @@ class _InvoiceState extends State<Invoice> {
         const Text(
           "Mã QR thanh toán",
           style: TextStyle(
-              fontFamily: 'Roboto', fontSize: 15, fontWeight: FontWeight.w500),
+              fontFamily: 'Roboto', fontSize: 15, fontWeight: FontWeight.w600),
         ),
         Container(
             width: 120, // Increased size for better visibility
@@ -598,25 +629,25 @@ class _InvoiceState extends State<Invoice> {
         const Text(
           'Tra cứu hóa đơn điện tử tại',
           style: TextStyle(
-              fontFamily: 'Roboto', fontSize: 15, fontWeight: FontWeight.w500),
+              fontFamily: 'Roboto', fontSize: 15, fontWeight: FontWeight.w600),
           textAlign: TextAlign.center,
         ),
         const Text(
           'https://tracuuhddt.zamiapp.vn',
           style: TextStyle(
-              fontFamily: 'Roboto', fontSize: 15, fontWeight: FontWeight.w500),
+              fontFamily: 'Roboto', fontSize: 15, fontWeight: FontWeight.w600),
           textAlign: TextAlign.center,
         ),
         Text(
           'Mã tra cứu: ${widget.receiptData.order.code}',
           style: const TextStyle(
-              fontFamily: 'Roboto', fontSize: 15, fontWeight: FontWeight.w500),
+              fontFamily: 'Roboto', fontSize: 15, fontWeight: FontWeight.w600),
           textAlign: TextAlign.center,
         ),
         const Text(
           'Cảm ơn quý khách đã mua hàng!',
           style: TextStyle(
-              fontFamily: 'Roboto', fontSize: 15, fontWeight: FontWeight.w500),
+              fontFamily: 'Roboto', fontSize: 15, fontWeight: FontWeight.w600),
           textAlign: TextAlign.center,
         ),
         if (widget.receiptData.phone != null)
@@ -625,13 +656,13 @@ class _InvoiceState extends State<Invoice> {
             style: const TextStyle(
                 fontFamily: 'Roboto',
                 fontSize: 15,
-                fontWeight: FontWeight.w500),
+                fontWeight: FontWeight.w600),
             textAlign: TextAlign.center,
           ),
         const Text(
           'Powered by Zami Solution',
           style: TextStyle(
-              fontFamily: 'Roboto', fontSize: 15, fontWeight: FontWeight.w500),
+              fontFamily: 'Roboto', fontSize: 15, fontWeight: FontWeight.w600),
           textAlign: TextAlign.center,
         ),
       ],
@@ -841,7 +872,7 @@ class ReceiptExample extends StatelessWidget {
           address: "123 Lê Lợi, Quận 1, TP.HCM",
         ),
         table: TableData(
-          name: "Bàn số 1",
+          name: "Số 1",
         ),
         waitingCard: "WC-01",
         createdAt: DateTime.parse("2025-09-20 08:55:00"),
